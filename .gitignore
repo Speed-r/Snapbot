@@ -1,0 +1,5 @@
+node_modules
+listen/*
+package-lock.json
+config.json/gespeichert
+.env

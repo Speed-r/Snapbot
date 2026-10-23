@@ -1,0 +1,19 @@
+{
+  "name": "snap-bot",
+  "version": "1.1.0",
+  "description": "Discord-Bot: Einstellungsregel zwischen zwei Channels überwachen und Nutzer markieren",
+  "main": "discord/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node discord/index.js",
+    "update": "npm install discord.js@latest sharp@latest dotenv@latest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "discord.js": "^14",
+    "dotenv": "^17",
+    "sharp": "^0.34"
+  }
+}

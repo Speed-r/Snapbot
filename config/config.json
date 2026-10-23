@@ -1,0 +1,76 @@
+{
+  "917759460561285130": {
+    "ersterId": "1560308451798679652",
+    "folgeId": "1560308489807724574",
+    "hinweisId": "1559602370445320314",
+    "uhrzeit": "19:20",
+    "uhrzeitMinuten": 1160,
+    "regelLink": "https://canary.discord.com/channels/917759460561285130/1109145138372026399/1113732835669454859",
+    "sperren": false,
+    "gesperrt": {},
+    "loeschen": true,
+    "nurBilder": true,
+    "bildvergleich": false,
+    "toleranz": 1,
+    "text": null,
+    "vorbereitetAm": null,
+    "manuellFrei": {
+      "354304944251207680": "2026-10-15"
+    },
+    "abschluss": {
+      "textVoll": "-----------------------------------------------------\nChannel ist jetzt geschlossen 🙂\n\nClosed by MaxCount reached\nVielen Dank für die Teilnahme",
+      "textZeit": "-----------------------------------------------------\nChannel ist jetzt geschlossen 🙂\n\nClosed by MaxTime reached\nVielen Dank für die Teilnahme",
+      "uhrzeit": "19:17",
+      "uhrzeitMinuten": 1157,
+      "wochentag": "5",
+      "status": {
+        "channelId": "1560308489807724574",
+        "geschlossen": false,
+        "grund": "zeit",
+        "vollErledigt": true,
+        "zeitTag": "2026-10-16",
+        "am": "2026-10-16T17:17:34.507Z"
+      }
+    },
+    "ausnahmeRollen": [
+      "1026875898005311508"
+    ]
+  },
+  "1111044013416517772": {
+    "ersterId": "1559614573504503818",
+    "folgeId": "1562782685158576231",
+    "hinweisId": "1111051338583920670",
+    "uhrzeit": "16:00",
+    "uhrzeitMinuten": 960,
+    "regelLink": "https://canary.discord.com/channels/1111044013416517772/1111052620010893392/1478773190317834261",
+    "sperren": false,
+    "gesperrt": {},
+    "loeschen": true,
+    "nurBilder": true,
+    "bildvergleich": false,
+    "toleranz": 1,
+    "text": "{user}\n\nBitte beachte die Snap-Sonderchannel-Einstellungsregel.\nKannst es dann gern ab {uhrzeit} Uhr einstellen 🫶\nLies gern nochmal nach {regel}",
+    "ausnahmeRollen": [
+      "1262061254793625610"
+    ],
+    "vorbereitetAm": null,
+    "manuellFrei": {},
+    "abschluss": {
+      "wochentag": "6",
+      "status": {
+        "channelId": "1562782685158576231",
+        "geschlossen": false,
+        "grund": null,
+        "vollErledigt": false,
+        "zeitTag": null
+      },
+      "anzahl": 50,
+      "uhrzeit": "18:00",
+      "uhrzeitMinuten": 1080,
+      "textVoll": "📸 **Der Channel ist voll!**\n----------------------------------------------------\n{anzahl} Leute haben ihr Bild gepostet – der Channel ist jetzt geschlossen.\nDanke an alle! 🫶",
+      "textZeit": "⏰ **Die Zeit ist um!**\n----------------------------------------------------\nDer Channel wurde um {uhrzeit} Uhr geschlossen – {anzahl} Leute haben mitgemacht.\nDanke an alle! 🫶"
+    },
+    "warteRolleId": "1560889911488421918",
+    "textDoppelt": "{user}\n\nIm Olli-dreamsnap Channel  darf jeder nur **ein** Bild posten – dein weiterer Beitrag wurde entfernt. 🫶"
+  }
+}
