@@ -77,15 +77,16 @@ const letzteHinweise = new Map(); // guildId:userId -> Zeitstempel (verhindert S
 
 async function hinweisSenden(guild, cfg, userId) {
   const schluessel = `${guild.id}:${userId}`;
-  if (Date.now() - (letzteHinweise.get(schluessel) || 0) < 5 * 60 * 1000) return; // max. 1x pro 5 Min
+  if (Date.now() - (letzteHinweise.get(schluessel) || 0) < 5 * 60 * 1000) return false; // max. 1x pro 5 Min
   letzteHinweise.set(schluessel, Date.now());
 
   const ziel = await guild.channels.fetch(cfg.hinweisId).catch(() => null);
   if (!ziel?.isTextBased()) {
     console.warn('Hinweis-Channel nicht gefunden oder kein Text-Channel.');
-    return;
+    return false;
   }
   await ziel.send({ content: hinweisText(cfg, userId), allowedMentions: { users: [userId] } });
+  return true;
 }
 
 // ---------------------------------------------------------------------------

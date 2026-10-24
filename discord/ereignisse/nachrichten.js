@@ -32,8 +32,25 @@ async function nachrichtBearbeitet(alt, neu) {
   ersterChannelGeaendert(neu.guildId, neu.channelId);
 }
 
+// Jede Nachricht nur einmal prüfen (nach "Verbinde neu" kann Discord dieselbe Nachricht erneut melden)
+const verarbeitet = new Set();
+function schonVerarbeitet(id) {
+  if (verarbeitet.has(id)) return true;
+  verarbeitet.add(id);
+  if (verarbeitet.size > 2000) verarbeitet.delete(verarbeitet.values().next().value);
+  return false;
+}
+
+// Selbst löschen und sofort aus dem Zwischenspeicher nehmen (nicht erst auf Discords Lösch-Meldung warten)
+async function msgLoeschen(msg) {
+  const ok = await msg.delete().then(() => true).catch((e) => { console.warn('Löschen fehlgeschlagen:', e.message); return false; });
+  if (ok) cacheWeg(msg.channelId, [msg.id]);
+  return ok;
+}
+
 // Neue Nachricht im ersten oder Folge-Channel
 async function nachrichtNeu(msg) {
+  if (schonVerarbeitet(msg.id)) return;
   cacheNeu(msg);
   if (msg.author.bot || !msg.guild) return;
   const cfg = config[msg.guild.id];
@@ -60,7 +77,7 @@ async function nachrichtNeu(msg) {
 
   // 2a) Nur EIN Beitrag pro Person: weiterer Beitrag wird gelöscht (Ausnahme-Rollen dürfen mehrere)
   if (cfg.einBeitrag !== false && (!cfg.nurBilder || hatBild) && !(await ausnahme()) && await doppelterBeitrag(msg, cfg)) {
-    const weg = await msg.delete().then(() => true).catch((e) => { console.warn('Löschen fehlgeschlagen:', e.message); return false; });
+    const weg = await msgLoeschen(msg);
     if (weg) {
       await doppeltHinweisSenden(msg.guild, cfg, msg.author.id).catch(() => {});
       console.log(`Zweiter Beitrag von ${msg.author.tag} im Folge-Channel gelöscht.`);
@@ -74,11 +91,15 @@ async function nachrichtNeu(msg) {
     try {
       if (await verstoesst(msg, cfg)) {
         if (cfg.loeschen) {
-          geloescht = await msg.delete().then(() => true).catch((e) => { console.warn('Löschen fehlgeschlagen:', e.message); return false; });
+          geloescht = await msgLoeschen(msg);
         }
-        await hinweisSenden(msg.guild, cfg, msg.author.id);
+        const gesendet = await hinweisSenden(msg.guild, cfg, msg.author.id);
         if (cfg.sperren) await sperren(msg.guild, cfg, msg.author.id);
-        console.log(`Hinweis: ${msg.author.tag} hat vor ${cfg.uhrzeit} Uhr im Folge-Channel gepostet.`);
+        const was = [
+          cfg.loeschen ? (geloescht ? 'Post gelöscht' : 'Post NICHT gelöscht') : null,
+          gesendet ? 'Hinweis gesendet' : 'Hinweis schon in den letzten 5 Min. gesendet',
+        ].filter(Boolean).join(', ');
+        console.log(`Zu früh: ${msg.author.tag} hat vor ${cfg.uhrzeit} Uhr im Folge-Channel gepostet – ${was}.`);
       }
     } catch (e) {
       console.error('Fehler bei der Prüfung:', e);

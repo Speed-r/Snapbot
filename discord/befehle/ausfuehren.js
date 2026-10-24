@@ -1,3 +1,4 @@
+const { PermissionFlagsBits } = require('discord.js');
 const { config, regelBereit, speichern } = require('../lib/daten');
 const { privat } = require('../lib/helfer');
 const { doppeltText, hinweisText } = require('../lib/regel');
@@ -37,6 +38,9 @@ async function interaktionAusfuehren(interaction) {
 
     // Text-Fenster aus dem Einstellungs-Menü (Bereich Texte) abgeschickt
     if (interaction.isModalSubmit() && interaction.customId.startsWith('text:')) {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        return interaction.reply(privat('❌ Texte ändern dürfen nur Leute mit „Server verwalten“.'));
+      }
       const cfg = config[gid];
       if (!regelBereit(cfg)) return interaction.reply(privat('Bitte zuerst die Regel mit `/einstellungen` einrichten.'));
       const art = interaction.customId.split(':')[1];

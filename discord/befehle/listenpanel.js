@@ -56,7 +56,7 @@ async function gemerkt(schluessel, laden) {
 const vergessen = (praefix) => { for (const k of ergebnisCache.keys()) if (k.startsWith(praefix)) ergebnisCache.delete(k); };
 
 // Einheitliches Format: { titel, beschreibung, kanal: {id,name}, eintraege: [{ id, name, user, zeile, letzter? }], pfad?, speicherbar }
-async function datenLaden(guild, cfg, z) {
+async function datenLaden(guild, cfg, z, member = null) {
   const kurzDatum = (d) => d.slice(0, 6); // "12.10.2026" -> "12.10."
 
   if (z.ansicht === 'frueh' || z.ansicht === 'folge') {
@@ -87,6 +87,10 @@ async function datenLaden(guild, cfg, z) {
   if (!chId) return { fehler: 'Bitte unten einen Channel wählen.', ohneChannel: true };
   const channel = await guild.channels.fetch(chId).catch(() => null);
   if (!channel?.isTextBased()) return { fehler: 'Channel nicht gefunden.', ohneChannel: true };
+  // Kein Blick in Channels, die die Person selbst nicht sehen darf (z. B. Team-Channels)
+  if (member && !channel.permissionsFor?.(member)?.has(PermissionFlagsBits.ViewChannel)) {
+    return { fehler: 'Diesen Channel darfst du nicht sehen.', ohneChannel: true };
+  }
 
   if (z.ansicht === 'verlauf') {
     const nurVor = z.vor === '1' && regelBereit(cfg);
@@ -145,9 +149,9 @@ async function datenLaden(guild, cfg, z) {
 // Nachricht bauen
 // ---------------------------------------------------------------------------
 
-async function listenNachricht(guild, z, { bestaetigen = false } = {}) {
+async function listenNachricht(guild, z, { bestaetigen = false, member = null } = {}) {
   const cfg = config[guild.id];
-  const d = await datenLaden(guild, cfg, z);
+  const d = await datenLaden(guild, cfg, z, member);
   const ansicht = ANSICHTEN.find((a) => a.id === z.ansicht) || ANSICHTEN[0];
 
   const e = menueEmbed(FARBE, 'Listen');
@@ -222,7 +226,7 @@ async function listenNachricht(guild, z, { bestaetigen = false } = {}) {
 // ---------------------------------------------------------------------------
 async function listenOeffnen(interaction) {
   const senden = schnellAntwort(interaction, 'reply');
-  const { nachricht } = await listenNachricht(interaction.guild, { ...STANDARD });
+  const { nachricht } = await listenNachricht(interaction.guild, { ...STANDARD }, { member: interaction.member });
   return senden(nachricht);
 }
 
@@ -244,7 +248,7 @@ async function listenInteraktion(interaction) {
   // Datei schicken
   if (aktion === 'd') {
     await interaction.deferReply();
-    const { daten } = await listenNachricht(guild, z);
+    const { daten } = await listenNachricht(guild, z, { member: interaction.member });
     if (!daten.pfad) await interaction.editReply('❌ Für diese Ansicht gibt es keine Datei.');
     else await interaction.editReply({ content: `📄 ${daten.titel}`, files: [daten.pfad] });
     return true;
@@ -262,7 +266,7 @@ async function listenInteraktion(interaction) {
 
   // "Alle löschen": erst Rückfrage im Menü (l), dann löschen (L) oder abbrechen (k)
   if (aktion === 'l') {
-    const { nachricht } = await listenNachricht(guild, z, { bestaetigen: true });
+    const { nachricht } = await listenNachricht(guild, z, { bestaetigen: true, member: interaction.member });
     await senden(nachricht);
     return true;
   }
@@ -287,7 +291,7 @@ async function listenInteraktion(interaction) {
   }
 
   if (aktion === 's') {
-    const { daten } = await listenNachricht(guild, z);
+    const { daten } = await listenNachricht(guild, z, { member: interaction.member });
     const ziel = kanalHolen(guild.id, daten.kanal.id, daten.kanal.name);
     let neu = 0;
     for (const p of daten.eintraege) {
@@ -304,7 +308,7 @@ async function listenInteraktion(interaction) {
       (istErster ? 'Das ist der erste Channel – die Namen zählen ab sofort für die Regel.' : 'Die Namen zählen, sobald dieser Channel der erste Channel ist.');
   }
 
-  const { nachricht } = await listenNachricht(guild, z);
+  const { nachricht } = await listenNachricht(guild, z, { member: interaction.member });
   await senden(nachricht);
   if (hinweis) await interaction.followUp(privat(hinweis));
   return true;

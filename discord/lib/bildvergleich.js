@@ -6,7 +6,7 @@
 const sharp = require('sharp');
 
 async function dHash(buffer) {
-  const { data, info } = await sharp(buffer)
+  const { data, info } = await sharp(buffer, { limitInputPixels: 100_000_000 }) // Schutz vor Riesen-Bildern
     .rotate() // EXIF-Drehung berücksichtigen
     .removeAlpha()
     .grayscale()
@@ -26,10 +26,18 @@ async function dHash(buffer) {
   return hash;
 }
 
+// Nur Bilder von Discords eigenen Servern laden, höchstens 25 MB, höchstens 15 Sekunden
+const ERLAUBTE_HOSTS = ['cdn.discordapp.com', 'media.discordapp.net'];
+const MAX_BYTES = 25 * 1024 * 1024;
+
 async function hashVonUrl(url) {
-  const res = await fetch(url);
+  const u = new URL(url);
+  if (u.protocol !== 'https:' || !ERLAUBTE_HOSTS.includes(u.hostname)) throw new Error('Bild nicht von Discord');
+  const res = await fetch(u, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Download fehlgeschlagen (${res.status})`);
+  if (Number(res.headers.get('content-length') || 0) > MAX_BYTES) throw new Error('Bild zu groß');
   const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length > MAX_BYTES) throw new Error('Bild zu groß');
   return dHash(buffer);
 }
 
