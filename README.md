@@ -90,7 +90,7 @@ Ausschalten: Anzahl `0` bzw. Uhrzeit `aus`. Ohne eigene Rolle wird @everyone ges
 
 ## 4. Befehle
 
-Es gibt vier Befehle: `/einstellungen`, `/channel`, `/person` und `/listen`. Jeder öffnet direkt ein **Menü**, es gibt
+Es gibt fünf Befehle: `/einstellungen`, `/channel`, `/person`, `/listen` und `/nachricht`. Jeder öffnet direkt ein **Menü**, es gibt
 keine Felder auszufüllen. Alle Menüs sehen gleich aus: oben die Werte als Kästchen, darunter Auswahlfelder und Buttons,
 rechts unten **Schließen** (löscht die Menü-Nachricht).
 
@@ -169,6 +169,15 @@ Unten: **⬅️ 1/3 ➡️** zum Blättern und **Schließen**.
 - Die Listen werden 1 Minute zwischengespeichert, damit Blättern sofort geht. **🔄 Aktualisieren** liest neu.
 - Schließen darf, wer die Liste geöffnet hat, oder wer „Nachrichten verwalten“ hat.
 
+### `/nachricht` – freie Nachricht über den Bot
+1. Channel wählen. Danach öffnet sich ein Fenster.
+2. Text schreiben (bis 2000 Zeichen, Discord-Formatierung und Emojis gehen).
+3. Absenden: Der Bot postet die Nachricht, das Menü zeigt einen Link dazu.
+
+- **🔔 Pings** (Schalter, Standard aus): *aus* zeigt Erwähnungen nur an, ohne zu pingen. *an* pingt erwähnte Personen
+  und Rollen, `@everyone`/`@here` nur, wenn du das selbst darfst.
+- Senden geht nur in Channels, in denen du selbst schreiben darfst. In der Konsole steht, wer wohin gesendet hat.
+
 ### Texte
 Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
 
@@ -184,7 +193,7 @@ Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellung
 |---|---|
 | `/einstellungen` | Server verwalten |
 | `/channel` | Kanäle verwalten (*Öffnen* und *Neue Woche* zusätzlich: Server verwalten) |
-| `/person`, `/listen` | Nachrichten verwalten (im Listen-Menü 💾 Speichern, Entfernen und Löschen: Server verwalten) |
+| `/person`, `/listen`, `/nachricht` | Nachrichten verwalten (im Listen-Menü 💾 Speichern, Entfernen und Löschen: Server verwalten) |
 
 Du kannst das unter *Servereinstellungen → Integrationen → Snap-Bot* pro Rolle anpassen.
 Weil jeder die Menüs sieht, prüft der Bot bei jedem Klick die Rechte noch einmal. Blättern und Aktualisieren darf jeder.
@@ -240,6 +249,7 @@ snap-bot/
 │  │  ├─ channelpanel.js   Channel-Menü (/channel)
 │  │  ├─ personpanel.js    Personen-Menü (/person)
 │  │  ├─ listenpanel.js    Listen-Menü (/listen)
+│  │  ├─ nachrichtpanel.js freie Nachricht über den Bot (/nachricht)
 │  │  ├─ menue.js          gemeinsame Bausteine aller Menüs
 │  │  └─ ausfuehren.js     verteilt Befehle und Klicks auf die Menüs
 │  ├─ ereignisse/

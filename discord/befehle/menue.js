@@ -3,7 +3,7 @@ const { client } = require('../lib/client');
 const { privat } = require('../lib/helfer');
 
 // ---------------------------------------------------------------------------
-// Bausteine, die alle Menüs (/einstellungen, /channel, /person, /listen) gemeinsam nutzen
+// Bausteine, die alle Menüs (/einstellungen, /channel, /person, /listen, /nachricht) gemeinsam nutzen
 // ---------------------------------------------------------------------------
 const TEXT_CHANNELS = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
 const reihe = (...k) => new ActionRowBuilder().addComponents(...k);

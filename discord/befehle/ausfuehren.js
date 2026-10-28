@@ -7,6 +7,7 @@ const { panelInteraktion, panelNachricht } = require('./panel');
 const { listenInteraktion, listenOeffnen } = require('./listenpanel');
 const { personInteraktion, personOeffnen } = require('./personpanel');
 const { channelInteraktion, channelOeffnenBefehl } = require('./channelpanel');
+const { nachrichtInteraktion, nachrichtOeffnen } = require('./nachrichtpanel');
 
 const STANDARD_CFG = () => ({ sperren: true, loeschen: false, nurBilder: true, bildvergleich: false, toleranz: 8, gesperrt: {} });
 
@@ -30,11 +31,12 @@ async function interaktionAusfuehren(interaction) {
   const gid = interaction.guild.id;
 
   try {
-    // Klicks, Auswahl und Fenster der vier Menüs
+    // Klicks, Auswahl und Fenster der Menüs
     if (await panelInteraktion(interaction)) return;
     if (await listenInteraktion(interaction)) return;
     if (await personInteraktion(interaction)) return;
     if (await channelInteraktion(interaction)) return;
+    if (await nachrichtInteraktion(interaction)) return;
 
     // Text-Fenster aus dem Einstellungs-Menü (Bereich Texte) abgeschickt
     if (interaction.isModalSubmit() && interaction.customId.startsWith('text:')) {
@@ -74,6 +76,8 @@ async function interaktionAusfuehren(interaction) {
         return personOeffnen(interaction);
       case 'listen':
         return listenOeffnen(interaction);
+      case 'nachricht':
+        return nachrichtOeffnen(interaction);
     }
   } catch (e) {
     console.error(e);

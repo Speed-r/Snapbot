@@ -23,6 +23,11 @@ const commands = [
     .setName('listen')
     .setDescription('Listen-Menü: Frühposter, Folge-Channel, Verlauf und gespeicherte Namen')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  new SlashCommandBuilder()
+    .setName('nachricht')
+    .setDescription('Freie Nachricht über den Bot in einen Channel senden')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 ];
 
 module.exports = {

@@ -2,5 +2,5 @@ node_modules
 listen/*
 package-lock.json
 config.json/gespeichert
-config/config.json
 config/.env
+config/config.json
