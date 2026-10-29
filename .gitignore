@@ -1,6 +1,5 @@
 node_modules
 listen/*
 package-lock.json
-config.json/gespeichert
-config/.env
-config/config.json
+config/*
+!config/example.env
