@@ -186,7 +186,7 @@ async function alleVonHandEntsperren(guild, cfg) {
 // Berechtigungen vom bisherigen Folge-Channel übernehmen (für den Channel der neuen Woche)
 // Weggelassen wird, was der Bot selbst setzt: Warte-Rolle, sein eigener Eintrag und die
 // "Nachrichten senden"-Sperre vom Abschluss – sonst wäre der neue Channel gleich gesperrt.
-// Dazu: @everyone darf den neuen Channel nicht sehen, der Bot schon.
+// Dazu: @everyone darf den neuen Channel nicht sehen, aber schreiben (sobald er sichtbar ist); der Bot sieht ihn.
 // ---------------------------------------------------------------------------
 const SEHEN = PermissionFlagsBits.ViewChannel;
 // Der Bot muss den neuen Channel trotz "unsichtbar für @everyone" sehen und verwalten können
@@ -210,8 +210,8 @@ async function rechteVomFolgeChannel(guild, cfg) {
   // Neuer Channel ist standardmäßig für @everyone unsichtbar
   let jeder = liste.find((x) => x.id === guild.id);
   if (!jeder) liste.push(jeder = { id: guild.id, type: 0, allow: 0n, deny: 0n });
-  jeder.allow &= ~SEHEN;
   jeder.deny |= SEHEN;
+  jeder.allow |= SENDEN;
   // ... der Bot selbst sieht ihn aber
   if (client.user?.id) liste.push({ id: client.user.id, type: 1, allow: BOT_RECHTE, deny: 0n });
 
