@@ -22,8 +22,20 @@ client.on(Events.MessageUpdate, (alt, neu) => nachrichtBearbeitet(alt, neu).catc
 
 let aufhebenTimer = null;
 
-client.once(Events.ClientReady, async (c) => {
+// Befehle global anmelden (gelten auf jedem Server, auf dem der Bot ist)
+async function befehleAnmelden(c) {
   await c.application.commands.set(commands.map((cmd) => cmd.toJSON()));
+}
+
+client.once(Events.ClientReady, async (c) => {
+  // Zweite Prüfung nach dem Login (falls sich die ID nicht aus dem Token lesen ließ)
+  if (c.user.id !== CLIENT_ID) {
+    console.error(`❌ Token und CLIENT_ID gehören nicht zusammen: eingeloggt als ${c.user.tag} (${c.user.id}), CLIENT_ID ist ${CLIENT_ID}.`);
+    console.error('→ Token oder CLIENT_ID in config/.env korrigieren. Bot wird beendet.');
+    await c.destroy();
+    process.exit(1);
+  }
+  await befehleAnmelden(c);
   console.log(`Eingeloggt als ${c.user.tag} – Commands registriert.`);
   await sperrenNachholen(); // Sperren und Listen frisch berechnen (auch nach Offline-Zeit)
   aufhebenTimer = setInterval(() => sperrenAufheben().catch((e) => console.error(e)), 60 * 1000);
@@ -31,6 +43,22 @@ client.once(Events.ClientReady, async (c) => {
 
 if (!process.env.DISCORD_TOKEN) {
   console.error('DISCORD_TOKEN fehlt – bitte in config/.env eintragen.');
+  process.exit(1);
+}
+
+// CLIENT_ID ist Pflicht: Prüfung, ob Token und Bot-Account zusammengehören.
+// Der erste Teil eines Bot-Tokens ist die Bot-ID (Base64) – so lässt sich das schon VOR dem Login prüfen.
+const CLIENT_ID = (process.env.CLIENT_ID || '').trim();
+if (!/^\d{17,20}$/.test(CLIENT_ID)) {
+  console.error('CLIENT_ID fehlt oder ist ungültig – bitte in config/.env eintragen (Developer Portal → General Information → Application ID).');
+  process.exit(1);
+}
+const idAusToken = (() => {
+  try { return Buffer.from(process.env.DISCORD_TOKEN.trim().split('.')[0], 'base64').toString('utf8'); } catch { return null; }
+})();
+if (/^\d{17,20}$/.test(idAusToken || '') && idAusToken !== CLIENT_ID) {
+  console.error(`❌ Token und CLIENT_ID gehören nicht zusammen: Der Token ist von Bot ${idAusToken}, CLIENT_ID ist ${CLIENT_ID}.`);
+  console.error('→ Token oder CLIENT_ID in config/.env korrigieren. Bot wird nicht gestartet.');
   process.exit(1);
 }
 // ---------------------------------------------------------------------------
