@@ -137,7 +137,7 @@ Zeigt die aktuelle Woche: erster Channel, Folge-Channel, ob er offen oder geschl
 **Berechtigungen übernehmen:** Kopiert werden alle Rechte-Einträge des bisherigen Folge-Channels (Rollen und Personen).
 Weggelassen wird nur, was der Bot selbst setzt: die Warte-Rolle, sein eigener Eintrag und die „Nachrichten senden“-Sperre
 vom Abschluss. Der neue Channel startet also offen.
-Außerdem ist ein neuer Channel **standardmäßig für @everyone unsichtbar** („Kanal ansehen“ verweigert). Der Bot bekommt einen
+Für **@everyone** gilt im neuen Channel immer: **Kanal ansehen = Nein**, **Nachrichten senden = Ja**. Der Bot bekommt einen
 eigenen Eintrag, damit er ihn trotzdem sieht. Sichtbar wird er für die Rollen, die im Vorchannel „Kanal ansehen“ erlaubt haben.
 
 ### `/person` – das Personen-Menü
@@ -171,12 +171,15 @@ Unten: **⬅️ 1/3 ➡️** zum Blättern und **Schließen**.
 
 ### `/nachricht` – freie Nachricht über den Bot
 1. Channel wählen. Danach öffnet sich ein Fenster.
-2. Text schreiben (bis 2000 Zeichen, Discord-Formatierung und Emojis gehen).
+2. Text schreiben (bis 2000 Zeichen, Discord-Formatierung und Emojis gehen) und/oder **bis zu 10 Bilder/Dateien**
+   anhängen. Text oder Datei – eins von beiden muss da sein.
 3. Absenden: Der Bot postet die Nachricht, das Menü zeigt einen Link dazu.
 
 - **🔔 Pings** (Schalter, Standard aus): *aus* zeigt Erwähnungen nur an, ohne zu pingen. *an* pingt erwähnte Personen
   und Rollen, `@everyone`/`@here` nur, wenn du das selbst darfst.
-- Senden geht nur in Channels, in denen du selbst schreiben darfst. In der Konsole steht, wer wohin gesendet hat.
+- Dateien: Der Bot lädt sie neu hoch. Für Bots gilt Discords Upload-Grenze (meist 10 MB pro Nachricht).
+  Das Anhängen braucht ein aktuelles discord.js (`npm run update`), sonst gibt es nur das Textfeld.
+- Senden geht nur in Channels, in denen du selbst schreiben (und bei Dateien: Dateien anhängen) darfst. In der Konsole steht, wer wohin gesendet hat.
 
 ### Texte
 Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
@@ -215,6 +218,8 @@ Weil jeder die Menüs sieht, prüft der Bot bei jedem Klick die Rechte noch einm
    cp config/example.env config/.env    # Token eintragen (Windows: copy config\example.env config\.env)
    npm start
    ```
+   In `config/.env` müssen **`DISCORD_TOKEN`** und **`CLIENT_ID`** stehen (Application ID aus dem Developer Portal →
+   General Information). Gehören Token und CLIENT_ID nicht zum selben Bot, startet der Bot nicht und sagt das in der Konsole.
 6. Auf dem Server `/einstellungen` ausführen und im Bereich **Regel** Channels und Uhrzeit setzen.
 
 **Dauerhaft laufen lassen** (startet nach Absturz neu):

@@ -207,10 +207,12 @@ async function rechteVomFolgeChannel(guild, cfg) {
     liste.push({ id: ow.id, type: ow.type, allow, deny });
   }
 
-  // Neuer Channel ist standardmäßig für @everyone unsichtbar
+  // @everyone im neuen Channel: Anzeigen NEIN, Schreiben JA (alles andere wie im alten Folge-Channel)
   let jeder = liste.find((x) => x.id === guild.id);
   if (!jeder) liste.push(jeder = { id: guild.id, type: 0, allow: 0n, deny: 0n });
+  jeder.allow &= ~SEHEN;
   jeder.deny |= SEHEN;
+  jeder.deny &= ~SENDEN;
   jeder.allow |= SENDEN;
   // ... der Bot selbst sieht ihn aber
   if (client.user?.id) liste.push({ id: client.user.id, type: 1, allow: BOT_RECHTE, deny: 0n });
