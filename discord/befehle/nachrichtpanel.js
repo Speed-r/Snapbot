@@ -1,7 +1,8 @@
 const discord = require('discord.js');
 const { ButtonStyle, ChannelSelectMenuBuilder, ModalBuilder, PermissionFlagsBits, TextInputBuilder, TextInputStyle } = discord;
+const { client } = require('../lib/client');
 const { privat } = require('../lib/helfer');
-const { TEXT_CHANNELS, darf, knopf, menueEmbed, menueSchliessen, reihe, schliessenKnopf } = require('./menue');
+const { TEXT_CHANNELS, darf, knopf, menueEmbed, menueSchliessen, reihe, schliessenKnopf, schnellAntwort } = require('./menue');
 
 // ===========================================================================
 // /nachricht – freie Nachricht über den Bot senden
@@ -11,7 +12,7 @@ const { TEXT_CHANNELS, darf, knopf, menueEmbed, menueSchliessen, reihe, schliess
 const FARBE = 0x3ba55c;
 const RECHT = PermissionFlagsBits.ManageMessages;
 
-function nachrichtMenue(pings = '0', info = null) {
+function nachrichtMenue(pings = '0', info = null, gefunden = null) {
   const e = menueEmbed(FARBE, 'Nachricht').setTitle('✉️ Nachricht über den Bot senden')
     .setDescription('**1.** Unten den Channel wählen\n**2.** Im Fenster den Text schreiben' +
       (DATEIEN_MOEGLICH ? ' und bei Bedarf Bilder/Dateien anhängen (bis zu 10)' : '') +
@@ -19,7 +20,12 @@ function nachrichtMenue(pings = '0', info = null) {
     .addFields({ name: '🔔 Pings', value: pings === '1'
       ? 'an – erwähnte Personen und Rollen werden angepingt (@everyone/@here nur, wenn du das selbst darfst)'
       : 'aus – Erwähnungen werden angezeigt, aber niemand wird angepingt' });
-  if (info) e.addFields({ name: '​', value: info });
+  e.addFields(
+    { name: '✍️ Formatierung', value: '`**fett**` · `*kursiv*` · `__unterstrichen__` · `~~durch~~` · `||Spoiler||`\n`# Überschrift` · `> Zitat` · `- Liste` · `[Text](https://link)`' },
+    { name: '🎞️ GIF', value: 'GIF-Link (z. B. von tenor.com oder giphy.com) in den Text einfügen – Discord zeigt ihn als GIF an.' },
+    { name: '✏️ Bearbeiten', value: 'Button **✏️ Gesendete Nachricht bearbeiten** (Link oder Message-ID eingeben) – oder Rechtsklick auf die Bot-Nachricht → **Apps** → **Bot-Nachricht bearbeiten**' },
+  );
+  if (info) e.addFields({ name: '\u200b', value: info });
   return {
     content: '',
     embeds: [e],
@@ -27,8 +33,14 @@ function nachrichtMenue(pings = '0', info = null) {
       reihe(new ChannelSelectMenuBuilder().setCustomId(`np:c:${pings}`).setPlaceholder('📺 Channel wählen …').setChannelTypes(...TEXT_CHANNELS)),
       reihe(
         knopf(`np:p:${pings}`, `🔔 Pings: ${pings === '1' ? 'an' : 'aus'}`, pings === '1' ? ButtonStyle.Success : ButtonStyle.Secondary),
+        knopf(`np:f:${pings}`, '✏️ Gesendete Nachricht bearbeiten', ButtonStyle.Primary),
         schliessenKnopf(`np:x:${pings}`),
       ),
+      // Nach der Suche: gefundene Nachricht bearbeiten
+      ...(gefunden ? [reihe(
+        knopf(`np:e:${pings}:${gefunden.channelId}:${gefunden.id}`, '✏️ Text dieser Nachricht bearbeiten', ButtonStyle.Success),
+        knopf(`np:k:${pings}`, 'Abbrechen'),
+      )] : []),
     ],
     allowedMentions: { parse: [] },
   };
@@ -82,11 +94,46 @@ async function nachrichtOeffnen(interaction) {
 
 async function nachrichtInteraktion(interaction) {
   const id = interaction.customId || '';
-  if (!/^npm?:/.test(id)) return false;
-  const [art, a, b] = id.split(':');
+  if (!/^np[mf]?:/.test(id)) return false;
+  const [art, a, b, c, d] = id.split(':');
 
   if (art === 'np' && a === 'x') return menueSchliessen(interaction, RECHT);
   if (!(await darf(interaction, RECHT, 'Nachrichten verwalten'))) return true;
+
+  // Bearbeiten: 1) Fenster für Link/ID  2) Nachricht suchen  3) Bearbeiten-Fenster  (Abbrechen: k)
+  if (art === 'np' && a === 'f') {
+    const feld = new TextInputBuilder().setCustomId('ziel').setLabel('Nachrichten-Link oder Message-ID')
+      .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(200)
+      .setPlaceholder('https://discord.com/channels/… oder 1234567890123456789');
+    await interaction.showModal(new ModalBuilder().setCustomId(`npf:${b}`).setTitle('Nachricht zum Bearbeiten').addComponents(reihe(feld)));
+    return true;
+  }
+  if (art === 'npf') {
+    const pings = a;
+    const senden = schnellAntwort(interaction, 'update'); // die Suche über alle Channels kann kurz dauern
+    const { msg, fehler } = await nachrichtSuchen(interaction, interaction.fields.getTextInputValue('ziel'));
+    if (fehler) await senden(nachrichtMenue(pings, fehler));
+    else {
+      const vorschau = (msg.content || '*(nur Anhang)*').slice(0, 300) + (msg.content.length > 300 ? ' …' : '');
+      await senden(nachrichtMenue(pings, `Gefunden in <#${msg.channelId}> – [zur Nachricht](${msg.url}):\n>>> ${vorschau}`, msg));
+    }
+    return true;
+  }
+  if (art === 'np' && a === 'e') {
+    const channel = await interaction.guild.channels.fetch(c).catch(() => null);
+    const msg = channel?.messages ? await channel.messages.fetch(d).catch(() => null) : null;
+    const problem = !msg ? '❌ Die Nachricht gibt es nicht mehr.' : bearbeitbar(msg);
+    if (problem) {
+      await interaction.update(nachrichtMenue(b, problem));
+      return true;
+    }
+    await interaction.showModal(bearbeitenFenster(msg));
+    return true;
+  }
+  if (art === 'np' && a === 'k') {
+    await interaction.update(nachrichtMenue(b));
+    return true;
+  }
 
   // Pings umschalten
   if (art === 'np' && a === 'p') {
@@ -149,7 +196,98 @@ async function nachrichtInteraktion(interaction) {
   return false;
 }
 
+// ===========================================================================
+// Gesendete Bot-Nachricht bearbeiten (Rechtsklick -> Apps -> "Bot-Nachricht bearbeiten")
+//   npe:<channelId>:<messageId> = Bearbeiten-Fenster
+// ===========================================================================
+function bearbeitbar(msg) {
+  if (msg?.author?.id !== client.user?.id) return '❌ Bearbeiten geht nur bei Nachrichten, die der Bot gesendet hat.';
+  if (msg.components?.length || msg.embeds?.length) return '❌ Menüs und Embeds des Bots kann man so nicht bearbeiten – nur normale Text-Nachrichten.';
+  return null;
+}
+
+async function selbstSchreibenDarf(interaction, channel) {
+  const rechte = channel?.permissionsFor?.(interaction.member);
+  return !!rechte?.has(PermissionFlagsBits.ViewChannel) && !!rechte?.has(PermissionFlagsBits.SendMessages);
+}
+
+async function bearbeitenStart(interaction) {
+  if (!(await darf(interaction, RECHT, 'Nachrichten verwalten'))) return;
+  const msg = interaction.targetMessage;
+  const problem = bearbeitbar(msg);
+  if (problem) return interaction.reply(privat(problem));
+  if (!(await selbstSchreibenDarf(interaction, msg.channel))) {
+    return interaction.reply(privat(`❌ In <#${msg.channelId}> darfst du selbst nicht schreiben.`));
+  }
+  return interaction.showModal(bearbeitenFenster(msg));
+}
+
+function bearbeitenFenster(msg) {
+  const feld = new TextInputBuilder()
+    .setCustomId('text')
+    .setLabel('Neuer Text')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(2000)
+    .setRequired(!msg.attachments?.size); // mit Anhang darf der Text auch leer werden
+  if (msg.content) feld.setValue(msg.content.slice(0, 2000));
+  return new ModalBuilder().setCustomId(`npe:${msg.channelId}:${msg.id}`).setTitle('Bot-Nachricht bearbeiten').addComponents(reihe(feld));
+}
+
+// Nachricht per Link (…/channels/<server>/<channel>/<nachricht>) oder nur per ID finden.
+// Nur ID: der Bot sucht in allen Text-Channels, die die Person selbst sehen darf.
+async function nachrichtSuchen(interaction, eingabe) {
+  const guild = interaction.guild;
+  const text = String(eingabe || '').trim();
+  const link = text.match(/channels\/(\d{17,20})\/(\d{17,20})\/(\d{17,20})/);
+  const nurId = text.match(/^\d{17,20}$/);
+  if (!link && !nurId) return { fehler: '❌ Das ist weder ein Nachrichten-Link noch eine Message-ID.' };
+  if (link && link[1] !== guild.id) return { fehler: '❌ Der Link gehört zu einem anderen Server.' };
+
+  const darfSehen = (ch) => ch?.permissionsFor?.(interaction.member)?.has(PermissionFlagsBits.ViewChannel);
+  let msg = null;
+  if (link) {
+    const ch = await guild.channels.fetch(link[2]).catch(() => null);
+    if (!darfSehen(ch)) return { fehler: '❌ Diesen Channel darfst du nicht sehen.' };
+    msg = ch?.messages ? await ch.messages.fetch(link[3]).catch(() => null) : null;
+  } else {
+    const kandidaten = [...(guild.channels.cache?.values?.() || [])].filter((ch) => ch.isTextBased?.() && ch.messages && darfSehen(ch));
+    for (let i = 0; i < kandidaten.length && !msg; i += 5) {
+      const treffer = await Promise.all(kandidaten.slice(i, i + 5).map((ch) => ch.messages.fetch(nurId[0]).catch(() => null)));
+      msg = treffer.find(Boolean) || null;
+    }
+  }
+  if (!msg) return { fehler: '❌ Nachricht nicht gefunden.' + (nurId ? ' Tipp: Mit dem Nachrichten-Link geht es schneller und sicherer (Rechtsklick → Nachrichtenlink kopieren).' : '') };
+  const problem = bearbeitbar(msg);
+  if (problem) return { fehler: problem };
+  if (!(await selbstSchreibenDarf(interaction, msg.channel))) return { fehler: `❌ In <#${msg.channelId}> darfst du selbst nicht schreiben.` };
+  return { msg };
+}
+
+async function bearbeitenAbschicken(interaction) {
+  if (!(await darf(interaction, RECHT, 'Nachrichten verwalten'))) return;
+  const [, channelId, messageId] = interaction.customId.split(':');
+  const channel = await interaction.guild.channels.fetch(channelId).catch(() => null);
+  const msg = channel?.messages ? await channel.messages.fetch(messageId).catch(() => null) : null;
+  if (!msg) return interaction.reply(privat('❌ Die Nachricht gibt es nicht mehr.'));
+  const problem = bearbeitbar(msg);
+  if (problem) return interaction.reply(privat(problem));
+  if (!(await selbstSchreibenDarf(interaction, channel))) return interaction.reply(privat(`❌ In <#${channelId}> darfst du selbst nicht schreiben.`));
+
+  const text = (interaction.fields.getTextInputValue('text') || '').trim();
+  if (!text && !msg.attachments?.size) return interaction.reply(privat('❌ Die Nachricht darf nicht leer sein.'));
+  if (text === msg.content) return interaction.reply(privat('Nichts geändert.'));
+
+  // Beim Bearbeiten pingt Discord nie neu an – die Erwähnungen bleiben aber sichtbar
+  await msg.edit({ content: text, allowedMentions: { parse: [] } });
+  console.log(`Bot-Nachricht in #${channel.name} von ${interaction.user.tag} bearbeitet.`);
+  const info = `✏️ Nachricht bearbeitet – [zur Nachricht](${msg.url})`;
+  const ausMenue = interaction.message?.components?.[0]?.components?.[0]?.customId?.startsWith('np:');
+  return ausMenue ? interaction.update(nachrichtMenue('0', info)) : interaction.reply(privat(info));
+}
+
 module.exports = {
+  bearbeitenAbschicken,
+  bearbeitenStart,
   nachrichtInteraktion,
   nachrichtOeffnen,
 };

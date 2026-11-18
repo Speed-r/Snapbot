@@ -7,7 +7,8 @@ const { panelInteraktion, panelNachricht } = require('./panel');
 const { listenInteraktion, listenOeffnen } = require('./listenpanel');
 const { personInteraktion, personOeffnen } = require('./personpanel');
 const { channelInteraktion, channelOeffnenBefehl } = require('./channelpanel');
-const { nachrichtInteraktion, nachrichtOeffnen } = require('./nachrichtpanel');
+const { bearbeitenAbschicken, bearbeitenStart, nachrichtInteraktion, nachrichtOeffnen } = require('./nachrichtpanel');
+const { BEARBEITEN_NAME } = require('./liste');
 
 const STANDARD_CFG = () => ({ sperren: true, loeschen: false, nurBilder: true, bildvergleich: false, toleranz: 8, gesperrt: {} });
 
@@ -37,6 +38,10 @@ async function interaktionAusfuehren(interaction) {
     if (await personInteraktion(interaction)) return;
     if (await channelInteraktion(interaction)) return;
     if (await nachrichtInteraktion(interaction)) return;
+
+    // Rechtsklick -> Apps -> "Bot-Nachricht bearbeiten" und das Fenster dazu
+    if (interaction.isMessageContextMenuCommand?.() && interaction.commandName === BEARBEITEN_NAME) return bearbeitenStart(interaction);
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('npe:')) return bearbeitenAbschicken(interaction);
 
     // Text-Fenster aus dem Einstellungs-Menü (Bereich Texte) abgeschickt
     if (interaction.isModalSubmit() && interaction.customId.startsWith('text:')) {

@@ -181,6 +181,16 @@ Unten: **⬅️ 1/3 ➡️** zum Blättern und **Schließen**.
   Das Anhängen braucht ein aktuelles discord.js (`npm run update`), sonst gibt es nur das Textfeld.
 - Senden geht nur in Channels, in denen du selbst schreiben (und bei Dateien: Dateien anhängen) darfst. In der Konsole steht, wer wohin gesendet hat.
 
+**Formatierung und GIFs:** Eine Formatierungsleiste oder GIF-Auswahl gibt es in Bot-Fenstern bei Discord nicht. Formatierung
+per Zeichen funktioniert aber (`**fett**`, `*kursiv*`, `# Überschrift`, `> Zitat` …), das Menü zeigt einen Spickzettel.
+Ein GIF-Link von Tenor oder Giphy im Text wird als GIF angezeigt.
+
+### Bot-Nachricht bearbeiten (Rechtsklick)
+Rechtsklick auf eine Nachricht des Bots → **Apps** → **Bot-Nachricht bearbeiten**. Es öffnet sich ein Fenster mit dem
+bisherigen Text, den du ändern kannst. Geht nur bei normalen Text-Nachrichten des Bots (nicht bei Menüs/Embeds), mit
+„Nachrichten verwalten“ und nur in Channels, in denen du selbst schreiben darfst. Angehängte Dateien bleiben erhalten.
+Beim Bearbeiten wird niemand neu angepingt.
+
 ### Texte
 Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
 
@@ -254,7 +264,7 @@ snap-bot/
 │  │  ├─ channelpanel.js   Channel-Menü (/channel)
 │  │  ├─ personpanel.js    Personen-Menü (/person)
 │  │  ├─ listenpanel.js    Listen-Menü (/listen)
-│  │  ├─ nachrichtpanel.js freie Nachricht über den Bot (/nachricht)
+│  │  ├─ nachrichtpanel.js freie Nachricht über den Bot (/nachricht) + Bearbeiten
 │  │  ├─ menue.js          gemeinsame Bausteine aller Menüs
 │  │  └─ ausfuehren.js     verteilt Befehle und Klicks auf die Menüs
 │  ├─ ereignisse/

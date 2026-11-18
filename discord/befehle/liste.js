@@ -1,4 +1,7 @@
-const { PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
+const { ApplicationCommandType, ContextMenuCommandBuilder, PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
+
+// Name des Rechtsklick-Befehls (Nachricht -> Apps)
+const BEARBEITEN_NAME = 'Bot-Nachricht bearbeiten';
 
 // ---------------------------------------------------------------------------
 // Slash-Commands – jeder Befehl öffnet ein Menü, es gibt keine Felder
@@ -28,8 +31,15 @@ const commands = [
     .setName('nachricht')
     .setDescription('Freie Nachricht über den Bot in einen Channel senden')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  // Rechtsklick auf eine Nachricht des Bots -> Apps -> "Bot-Nachricht bearbeiten"
+  new ContextMenuCommandBuilder()
+    .setName(BEARBEITEN_NAME)
+    .setType(ApplicationCommandType.Message)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 ];
 
 module.exports = {
+  BEARBEITEN_NAME,
   commands,
 };
