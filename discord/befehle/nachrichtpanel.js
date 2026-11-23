@@ -12,11 +12,12 @@ const { TEXT_CHANNELS, darf, knopf, menueEmbed, menueSchliessen, reihe, schliess
 const FARBE = 0x3ba55c;
 const RECHT = PermissionFlagsBits.ManageMessages;
 
-function nachrichtMenue(pings = '0', info = null, gefunden = null) {
+function nachrichtMenue(pings = '0', info = null, gefunden = null, kanal = null) {
   const e = menueEmbed(FARBE, 'Nachricht').setTitle('✉️ Nachricht über den Bot senden')
-    .setDescription('**1.** Unten den Channel wählen\n**2.** Im Fenster den Text schreiben' +
-      (DATEIEN_MOEGLICH ? ' und bei Bedarf Bilder/Dateien anhängen (bis zu 10)' : '') +
-      '\n**3.** Absenden – der Bot postet die Nachricht')
+    .setDescription('**1.** Unten den Channel wählen\n**2.** **✍️ Nachricht schreiben** klicken und im Fenster den Text schreiben' +
+      (DATEIEN_MOEGLICH ? ' (bei Bedarf Bilder/Dateien anhängen, bis zu 10)' : '') +
+      '\n**3.** Absenden – der Bot postet die Nachricht' +
+      (kanal ? `\n\n📺 **Gewählter Channel:** <#${kanal}>` : ''))
     .addFields({ name: '🔔 Pings', value: pings === '1'
       ? 'an – erwähnte Personen und Rollen werden angepingt (@everyone/@here nur, wenn du das selbst darfst)'
       : 'aus – Erwähnungen werden angezeigt, aber niemand wird angepingt' });
@@ -30,20 +31,28 @@ function nachrichtMenue(pings = '0', info = null, gefunden = null) {
     content: '',
     embeds: [e],
     components: [
-      reihe(new ChannelSelectMenuBuilder().setCustomId(`np:c:${pings}`).setPlaceholder('📺 Channel wählen …').setChannelTypes(...TEXT_CHANNELS)),
+      reihe(kanalAuswahl(pings, kanal)),
       reihe(
-        knopf(`np:p:${pings}`, `🔔 Pings: ${pings === '1' ? 'an' : 'aus'}`, pings === '1' ? ButtonStyle.Success : ButtonStyle.Secondary),
+        // Eigener Button öffnet das Fenster – so geht es auch nach "Abbrechen" und mehrmals hintereinander
+        knopf(`np:w:${pings}:${kanal || '-'}`, '✍️ Nachricht schreiben', ButtonStyle.Success).setDisabled(!kanal),
+        knopf(`np:p:${pings}:${kanal || '-'}`, `🔔 Pings: ${pings === '1' ? 'an' : 'aus'}`, pings === '1' ? ButtonStyle.Success : ButtonStyle.Secondary),
         knopf(`np:f:${pings}`, '✏️ Gesendete Nachricht bearbeiten', ButtonStyle.Primary),
         schliessenKnopf(`np:x:${pings}`),
       ),
       // Nach der Suche: gefundene Nachricht bearbeiten
       ...(gefunden ? [reihe(
         knopf(`np:e:${pings}:${gefunden.channelId}:${gefunden.id}`, '✏️ Text dieser Nachricht bearbeiten', ButtonStyle.Success),
-        knopf(`np:k:${pings}`, 'Abbrechen'),
+        knopf(`np:k:${pings}:${kanal || '-'}`, 'Abbrechen'),
       )] : []),
     ],
     allowedMentions: { parse: [] },
   };
+}
+
+function kanalAuswahl(pings, kanal) {
+  const a = new ChannelSelectMenuBuilder().setCustomId(`np:c:${pings}`).setPlaceholder('📺 Channel wählen …').setChannelTypes(...TEXT_CHANNELS);
+  if (kanal && typeof a.setDefaultChannels === 'function') a.setDefaultChannels(kanal);
+  return a;
 }
 
 // Datei-Upload im Fenster gibt es erst in neueren discord.js-Versionen – sonst nur Text
@@ -131,19 +140,29 @@ async function nachrichtInteraktion(interaction) {
     return true;
   }
   if (art === 'np' && a === 'k') {
-    await interaction.update(nachrichtMenue(b));
+    await interaction.update(nachrichtMenue(b, null, null, c && c !== '-' ? c : null));
     return true;
   }
 
   // Pings umschalten
   if (art === 'np' && a === 'p') {
-    await interaction.update(nachrichtMenue(b === '1' ? '0' : '1'));
+    await interaction.update(nachrichtMenue(b === '1' ? '0' : '1', null, null, c !== '-' ? c : null));
     return true;
   }
 
-  // Channel gewählt -> Fenster für den Text öffnen
+  // Channel gewählt -> nur merken (Menü zeigt ihn an), das Fenster öffnet der Button "Nachricht schreiben"
   if (art === 'np' && a === 'c') {
-    await interaction.showModal(textFenster(interaction.values[0], b));
+    await interaction.update(nachrichtMenue(b, null, null, interaction.values[0]));
+    return true;
+  }
+
+  // "Nachricht schreiben" -> Fenster öffnen (beliebig oft, auch nach Abbrechen)
+  if (art === 'np' && a === 'w') {
+    if (!c || c === '-') {
+      await interaction.update(nachrichtMenue(b, '❌ Bitte zuerst einen Channel wählen.'));
+      return true;
+    }
+    await interaction.showModal(textFenster(c, b));
     return true;
   }
 
@@ -188,8 +207,9 @@ async function nachrichtInteraktion(interaction) {
     }
 
     // Aus dem Menü geöffnet -> Menü aktualisieren, sonst normal antworten
-    if (interaction.deferred) await interaction.editReply(nachrichtMenue(pings, info));
-    else if (interaction.message) await interaction.update(nachrichtMenue(pings, info));
+    // Channel bleibt gewählt – so kann man gleich die nächste Nachricht schreiben
+    if (interaction.deferred) await interaction.editReply(nachrichtMenue(pings, info, null, channelId));
+    else if (interaction.message) await interaction.update(nachrichtMenue(pings, info, null, channelId));
     else await interaction.reply(privat(info));
     return true;
   }
