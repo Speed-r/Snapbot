@@ -8,7 +8,7 @@ const { listenInteraktion, listenOeffnen } = require('./listenpanel');
 const { personInteraktion, personOeffnen } = require('./personpanel');
 const { channelInteraktion, channelOeffnenBefehl } = require('./channelpanel');
 const { bearbeitenAbschicken, bearbeitenStart, nachrichtInteraktion, nachrichtOeffnen } = require('./nachrichtpanel');
-const { BEARBEITEN_NAME } = require('./liste');
+const { BEARBEITEN_NAME } = require('./definitionen');
 
 const STANDARD_CFG = () => ({ sperren: true, loeschen: false, nurBilder: true, bildvergleich: false, toleranz: 8, gesperrt: {} });
 

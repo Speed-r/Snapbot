@@ -259,7 +259,7 @@ snap-bot/
 ├─ discord/
 │  ├─ index.js             Start, Ereignisse verbinden, Login, sauberes Beenden
 │  ├─ befehle/
-│  │  ├─ liste.js          Definition aller Slash-Commands
+│  │  ├─ definitionen.js   Definition aller Befehle (Slash-Commands + Rechtsklick)
 │  │  ├─ panel.js          Einstellungs-Menü (/einstellungen)
 │  │  ├─ channelpanel.js   Channel-Menü (/channel)
 │  │  ├─ personpanel.js    Personen-Menü (/person)

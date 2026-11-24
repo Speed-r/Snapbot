@@ -7,7 +7,7 @@ const { client } = require('./lib/client');
 const { config, speichern } = require('./lib/daten');
 const { listeErstellen, listenTimer } = require('./lib/listen');
 const { sperrenAufheben, sperrenNachholen } = require('./lib/ablauf');
-const { commands } = require('./befehle/liste');
+const { commands } = require('./befehle/definitionen');
 const { interaktion } = require('./befehle/ausfuehren');
 const { nachrichtBearbeitet, nachrichtGeloescht, nachrichtNeu, nachrichtenGeloescht } = require('./ereignisse/nachrichten');
 
