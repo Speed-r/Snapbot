@@ -2,7 +2,7 @@ const { ButtonStyle, ChannelSelectMenuBuilder, ChannelType, PermissionFlagsBits 
 const { config, regelBereit } = require('../lib/daten');
 const { privat } = require('../lib/helfer');
 const { wocheWechseln } = require('../lib/ablauf');
-const { abschlussStatus, channelOeffnen } = require('../lib/abschluss');
+const { abschlussStatus, channelFreischalten, channelOeffnen, istFreigeschaltet } = require('../lib/abschluss');
 const { rechteUebertragen, rechteVomFolgeChannel } = require('../lib/rechte');
 const { TEXT_CHANNELS, darf, eingabeFenster, knopf, menueEmbed, menueSchliessen, reihe, schliessenKnopf, schnellAntwort } = require('./menue');
 
@@ -52,11 +52,20 @@ async function channelNachricht(guild, { bestaetigen = null, info = null } = {})
   zeilen.push(reihe(
     knopf('cp:n', '➕ Channel erstellen', ButtonStyle.Primary),
     knopf('cp:N', '➕ Erstellen + neue Woche', ButtonStyle.Primary).setDisabled(!bereit),
-    knopf('cp:o', '🔓 Folge-Channel öffnen', ButtonStyle.Success).setDisabled(!status?.geschlossen),
+    oeffnenKnopf(guild, cfg, status, folge),
     knopf('cp:r', '🔄'),
     schliessenKnopf('cp:x'),
   ));
   return { content: '', embeds: [e], components: zeilen, allowedMentions: { parse: [] } };
+}
+
+// Ein Button für beides:
+//  - Folge-Channel durch den Abschluss geschlossen -> wieder öffnen
+//  - neuer Folge-Channel noch nicht freigeschaltet  -> für @everyone freischalten (+ Freischalt-Text)
+function oeffnenKnopf(guild, cfg, status, folge) {
+  if (status?.geschlossen) return knopf('cp:o', '🔓 Folge-Channel öffnen', ButtonStyle.Success);
+  if (cfg && regelBereit(cfg) && !istFreigeschaltet(guild, cfg, folge)) return knopf('cp:o', '🔓 Channel freischalten', ButtonStyle.Success);
+  return knopf('cp:o', '🔓 Freigeschaltet', ButtonStyle.Success).setDisabled(true);
 }
 
 async function channelOeffnenBefehl(interaction) {
@@ -154,10 +163,14 @@ async function channelInteraktion(interaction) {
   if (aktion === 'o') {
     const senden = schnellAntwort(interaction, 'update');
     const cfg = config[guild.id];
-    let info = `<#${cfg.folgeId}> ist nicht geschlossen.`;
+    let info = null;
     if (abschlussStatus(cfg).geschlossen) {
       await channelOeffnen(guild, cfg);
       info = `🔓 <#${cfg.folgeId}> ist wieder offen. Er wird diese Woche nicht mehr automatisch geschlossen.`;
+    } else {
+      // Freischalten: Rechte sofort, Freischalt-Text ein paar Sekunden später (keine Erfolgsmeldung)
+      const ergebnis = await channelFreischalten(guild, cfg);
+      info = ergebnis.fehler ? `❌ ${ergebnis.fehler}` : ergebnis.info;
     }
     await senden(await channelNachricht(guild, { info }));
     return true;

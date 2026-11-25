@@ -4,12 +4,12 @@ const {
 } = require('discord.js');
 const { TEXT_CHANNELS, eingabeFenster, knopf, menueSchliessen, reihe, schliessenKnopf, schnellAntwort } = require('./menue');
 const { client } = require('../lib/client');
-const { STANDARD_DOPPELT, STANDARD_TEXT, STANDARD_VOLL, STANDARD_ZEIT, config, gespeicherteKanaele, regelBereit, speichern } = require('../lib/daten');
+const { STANDARD_DOPPELT, STANDARD_FREISCHALT, STANDARD_TEXT, STANDARD_VOLL, STANDARD_ZEIT, config, gespeicherteKanaele, regelBereit, speichern } = require('../lib/daten');
 const { LINK_REGEX, WOCHENTAGE, ZEITZONE, formatUhrzeit, parseUhrzeit, privat } = require('../lib/helfer');
 const { alleEntsperren, istAusnahme, rollenCache, sperreAufheben } = require('../lib/rechte');
 const { doppeltText, fruehCache, hinweisText } = require('../lib/regel');
 const { sperrenVorbereiten } = require('../lib/ablauf');
-const { abschlussStatus, abschlussText, abschlussZaehler, abschlussZeitPruefen, channelSchliessen, zaehlerCache } = require('../lib/abschluss');
+const { abschlussStatus, abschlussText, abschlussZaehler, abschlussZeitPruefen, channelSchliessen, freischaltPause, freischaltText, zaehlerCache } = require('../lib/abschluss');
 
 // ===========================================================================
 // /einstellungen – Einstellungs-Menü
@@ -20,7 +20,7 @@ const FARBE = 0x5865f2;
 
 const BEREICHE = [
   { id: 'regel', name: 'Regel', emoji: '📺', info: 'Channels, Uhrzeit, Regel-Link' },
-  { id: 'optionen', name: 'Optionen', emoji: '🔧', info: 'Sperre, Warte-Rolle, Löschen, Bilder, ein Beitrag' },
+  { id: 'optionen', name: 'Optionen', emoji: '🔧', info: 'Sperre, Warte-Rolle, Löschen, Bilder, ein Beitrag, Freischalt-Pause' },
   { id: 'abschluss', name: 'Abschluss', emoji: '🏁', info: 'Folge-Channel automatisch schließen' },
   { id: 'ausnahmen', name: 'Ausnahmen', emoji: '🛡️', info: 'Rollen, für die die Regel nicht gilt' },
   { id: 'texte', name: 'Texte', emoji: '📝', info: 'Hinweistexte und Abschlusstexte' },
@@ -29,14 +29,40 @@ const bereichInfo = (id) => BEREICHE.find((b) => b.id === id) || BEREICHE[0];
 
 const STANDARD_CFG = () => ({ sperren: true, loeschen: false, nurBilder: true, bildvergleich: false, toleranz: 8, gesperrt: {} });
 const anAus = (x) => (x ? 'an' : 'aus');
-const kurz = (t, n = 300) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+// Texte-Bereich in Seiten: je Seite die Texte, die zusammengehören (vollständig, nicht abgeschnitten)
+const TEXT_SEITEN = [
+  { name: 'Hinweise', texte: ['hinweis', 'doppelt'] },
+  { name: 'Abschluss', texte: ['voll', 'zeit'] },
+  { name: 'Freischalten', texte: ['freischalt'] },
+];
+const TEXT_INFO = {
+  hinweis: { titel: '📣 Hinweis (Uhrzeit-Regel)', knopf: '📣 Hinweis bearbeiten' },
+  doppelt: { titel: '1️⃣ Nur ein Beitrag', knopf: '1️⃣ Ein Beitrag bearbeiten' },
+  voll: { titel: '📸 Abschluss – Bilder voll', knopf: '📸 Bilder voll bearbeiten' },
+  zeit: { titel: '⏰ Abschluss – Zeit um', knopf: '⏰ Zeit um bearbeiten' },
+  freischalt: { titel: '📢 Beim Freischalten', knopf: '📢 Freischalt-Text bearbeiten' },
+};
+// Auf welcher Seite steht ein Text? (z. B. nach dem Bearbeiten wieder dorthin)
+const seiteVonText = (art) => Math.max(0, TEXT_SEITEN.findIndex((s) => s.texte.includes(art)));
+
+function textVorschau(guild, cfg, art) {
+  const t = {
+    hinweis: () => hinweisText(cfg, '0').replace('<@0>', '@Person'),
+    doppelt: () => doppeltText(cfg, '0').replace('<@0>', '@Person'),
+    voll: () => abschlussText(cfg, 'voll', cfg.abschluss?.anzahl ?? 50),
+    zeit: () => abschlussText(cfg, 'zeit', 42),
+    freischalt: () => freischaltText(cfg, guild.channels.cache?.get(cfg.folgeId)?.name),
+  }[art]();
+  return t || '*(leer)*';
+}
+
 const kanal = (id) => (id ? `<#${id}>` : '*nicht gesetzt*');
 const rolle = (id, leer = '@everyone') => (id ? `<@&${id}>` : leer);
 
 // ---------------------------------------------------------------------------
 // Inhalte der Bereiche (gleich für Panel und Ansicht)
 // ---------------------------------------------------------------------------
-async function bereichEmbed(guild, cfg, bereich, fuss) {
+async function bereichEmbed(guild, cfg, bereich, fuss, seite = 0) {
   const b = bereichInfo(bereich);
   const e = new EmbedBuilder()
     .setColor(FARBE)
@@ -52,7 +78,7 @@ async function bereichEmbed(guild, cfg, bereich, fuss) {
       f('📺 Erster Channel', kanal(cfg.ersterId)),
       f('📺 Folge-Channel', kanal(cfg.folgeId)),
       f('📣 Hinweis-Channel', kanal(cfg.hinweisId)),
-      f('⏰ Erlaubt ab', cfg.uhrzeit ? `**${cfg.uhrzeit} Uhr**` : '*nicht gesetzt*'),
+      f('⏰ Erlaubt ab', (cfg.uhrzeit ? `**${cfg.uhrzeit} Uhr**` : '*nicht gesetzt*') + '\n-# Frühposter dürfen erst ab dann im Folge-Channel posten'),
       f('🔒 Gerade gesperrt', `${gesperrt} Person(en)`),
       f('🔗 Regel-Link', cfg.regelLink ? `[Zur Regel](${cfg.regelLink})` : '–'),
     );
@@ -70,7 +96,7 @@ async function bereichEmbed(guild, cfg, bereich, fuss) {
       f('🔍 Bildvergleich', anAus(cfg.bildvergleich)),
       f('🎯 Toleranz', `${cfg.toleranz ?? 8} (0–20)`),
       f('1️⃣ Nur ein Beitrag', anAus(cfg.einBeitrag !== false)),
-      f('\u200b', '\u200b'),
+      f('⏱️ Freischalt-Pause', `${freischaltPause(cfg)} Sekunden\n-# Wartezeit zwischen Freischalten (/channel) und dem Freischalt-Text`),
       f('\u200b', '\u200b'),
     );
   }
@@ -111,12 +137,12 @@ async function bereichEmbed(guild, cfg, bereich, fuss) {
   }
 
   if (b.id === 'texte') {
-    e.addFields(
-      f('📣 Hinweis', kurz(hinweisText(cfg, '0').replace('<@0>', '@Person')), false),
-      f('📸 Abschluss – Bilder voll', kurz(abschlussText(cfg, 'voll', cfg.abschluss?.anzahl ?? 50)), false),
-      f('⏰ Abschluss – Zeit um', kurz(abschlussText(cfg, 'zeit', 42)), false),
-      f('1️⃣ Nur ein Beitrag', kurz(doppeltText(cfg, '0').replace('<@0>', '@Person')), false),
-    );
+    // Vollständige Texte in der Beschreibung (bis 4096 Zeichen) – so wie sie später im Channel aussehen
+    const s = TEXT_SEITEN[seite];
+    const teile = s.texte.map((art) => `## ${TEXT_INFO[art].titel}\n${textVorschau(guild, cfg, art)}`);
+    let beschreibung = `*${b.info}* · Seite ${seite + 1}/${TEXT_SEITEN.length}: **${s.name}**\n\n${teile.join('\n\n━━━━━━━━━━━━\n\n')}`;
+    if (beschreibung.length > 4096) beschreibung = beschreibung.slice(0, 4095) + '…';
+    e.setDescription(beschreibung);
   }
   return e;
 }
@@ -150,8 +176,9 @@ function rollenAuswahl(id, platzhalter, aktuell = [], max = 1) {
 // ---------------------------------------------------------------------------
 // Panel (Einstellen)
 // ---------------------------------------------------------------------------
-async function panelNachricht(guild, cfg, bereich = 'regel') {
-  const embed = await bereichEmbed(guild, cfg, bereich, `Änderungen werden sofort gespeichert · Zeitzone: ${ZEITZONE}`);
+async function panelNachricht(guild, cfg, bereich = 'regel', seite = 0) {
+  seite = Math.min(Math.max(Number(seite) || 0, 0), TEXT_SEITEN.length - 1);
+  const embed = await bereichEmbed(guild, cfg, bereich, `Änderungen werden sofort gespeichert · Zeitzone: ${ZEITZONE}`, seite);
   const zeilen = [reihe(bereichAuswahl('ep:bereich', bereich))];
   const a = cfg.abschluss || {};
 
@@ -178,6 +205,7 @@ async function panelNachricht(guild, cfg, bereich = 'regel') {
       reihe(rollenAuswahl('ep:optionen:warterolle', '⏳ Warte-Rolle wählen (Standard: automatisch) …', [cfg.warteRolleId])),
       reihe(
         schalter('ep:optionen:einBeitrag', '1️⃣ Nur ein Beitrag', cfg.einBeitrag !== false),
+        knopf('ep:optionen:pause', `⏱️ Freischalt-Pause: ${freischaltPause(cfg)} s`, ButtonStyle.Primary),
         schliessen('ep'),
       ),
     );
@@ -202,13 +230,16 @@ async function panelNachricht(guild, cfg, bereich = 'regel') {
       reihe(schliessen('ep')),
     );
   } else if (bereich === 'texte') {
-    zeilen.push(reihe(
-      knopf('ep:texte:hinweis', '📣 Hinweis bearbeiten', ButtonStyle.Primary),
-      knopf('ep:texte:voll', '📸 Bilder voll bearbeiten', ButtonStyle.Primary),
-      knopf('ep:texte:zeit', '⏰ Zeit um bearbeiten', ButtonStyle.Primary),
-      knopf('ep:texte:doppelt', '1️⃣ Ein Beitrag bearbeiten', ButtonStyle.Primary),
-      schliessen('ep'),
-    ));
+    // Bearbeiten-Buttons nur für die Texte dieser Seite, darunter Blättern
+    zeilen.push(
+      reihe(...TEXT_SEITEN[seite].texte.map((art) => knopf(`ep:texte:${art}`, TEXT_INFO[art].knopf, ButtonStyle.Primary))),
+      reihe(
+        knopf(`ep:texte:seite:${seite - 1}`, '⬅️').setDisabled(seite <= 0),
+        knopf('ep:texte:seitenanzeige', `${seite + 1}/${TEXT_SEITEN.length}`).setDisabled(true),
+        knopf(`ep:texte:seite:${seite + 1}`, '➡️', ButtonStyle.Primary).setDisabled(seite >= TEXT_SEITEN.length - 1),
+        schliessen('ep'),
+      ),
+    );
   }
   return { content: '', embeds: [embed], components: zeilen, allowedMentions: { parse: [] } };
 }
@@ -223,6 +254,7 @@ function textFenster(cfg, art) {
     voll: { titel: 'Abschluss – Bilder voll', label: 'Text ({anzahl} {max} {uhrzeit} {channel})', wert: cfg.abschluss?.textVoll || STANDARD_VOLL },
     zeit: { titel: 'Abschluss – Zeit um', label: 'Text ({anzahl} {max} {uhrzeit} {channel})', wert: cfg.abschluss?.textZeit || STANDARD_ZEIT },
     doppelt: { titel: 'Nur ein Beitrag', label: 'Text ({user})', wert: cfg.textDoppelt || STANDARD_DOPPELT },
+    freischalt: { titel: 'Text beim Freischalten', label: 'Text ({nummer} {channel} {uhrzeit} {regel})', wert: cfg.textFreischalt || STANDARD_FREISCHALT },
   }[art];
   const feld = new TextInputBuilder()
     .setCustomId('text')
@@ -338,11 +370,18 @@ async function panelInteraktion(interaction) {
     return true;
   }
 
+  // Texte: blättern
+  if (id.startsWith('ep:texte:seite:')) {
+    await interaction.update(await panelNachricht(guild, cfg, 'texte', Number(id.split(':')[3])));
+    return true;
+  }
+
   // Buttons, die ein Fenster öffnen (müssen sofort antworten)
   if (interaction.isButton()) {
     const fenster = {
       'ep:regel:uhrzeit': () => eingabeFenster('epm:regel:uhrzeit', 'Uhrzeit X', 'Folge-Channel erlaubt ab (HH:MM)', cfg.uhrzeit, '16:00'),
       'ep:regel:link': () => eingabeFenster('epm:regel:link', 'Regel-Link', 'Nachrichtenlink zur Regel (leer = entfernen)', cfg.regelLink, 'https://discord.com/channels/…'),
+      'ep:optionen:pause': () => eingabeFenster('epm:optionen:pause', 'Freischalt-Pause', 'Sekunden bis zum Freischalt-Text (0–60)', freischaltPause(cfg), '8'),
       'ep:optionen:toleranz': () => eingabeFenster('epm:optionen:toleranz', 'Bildvergleich-Toleranz', 'Zahl von 0 bis 20 (Standard 8)', cfg.toleranz ?? 8, '8'),
       'ep:abschluss:anzahl': () => eingabeFenster('epm:abschluss:anzahl', 'Bilder voll', 'Ab wie vielen Leuten schließen? (0 = aus)', a.anzahl ?? 0, '50'),
       'ep:abschluss:uhrzeit': () => eingabeFenster('epm:abschluss:uhrzeit', 'Zeit um', 'Uhrzeit HH:MM (aus = ausschalten)', a.uhrzeit ?? 'aus', '23:59'),
@@ -350,6 +389,7 @@ async function panelInteraktion(interaction) {
       'ep:texte:voll': () => textFenster(cfg, 'voll'),
       'ep:texte:zeit': () => textFenster(cfg, 'zeit'),
       'ep:texte:doppelt': () => textFenster(cfg, 'doppelt'),
+      'ep:texte:freischalt': () => textFenster(cfg, 'freischalt'),
     }[id];
     if (fenster) {
       await interaction.showModal(fenster());
@@ -374,6 +414,10 @@ async function panelInteraktion(interaction) {
     } else if (bereich === 'regel' && feld === 'link') {
       if (wert && !LINK_REGEX.test(wert)) fehler = 'Das ist kein Discord-Nachrichtenlink (https://discord.com/channels/…).';
       else { cfg.regelLink = wert || null; speichern(); }
+    } else if (bereich === 'optionen' && feld === 'pause') {
+      const n = Number(wert);
+      if (!Number.isInteger(n) || n < 0 || n > 60) fehler = 'Pause bitte als ganze Zahl von 0 bis 60 Sekunden.';
+      else { cfg.freischaltPause = n; speichern(); }
     } else if (bereich === 'optionen' && feld === 'toleranz') {
       const n = Number(wert);
       if (!Number.isInteger(n) || n < 0 || n > 20) fehler = 'Toleranz bitte als ganze Zahl von 0 bis 20.';
@@ -437,5 +481,6 @@ async function panelInteraktion(interaction) {
 module.exports = {
   panelInteraktion,
   panelNachricht,
+  seiteVonText,
   textFenster,
 };

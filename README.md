@@ -103,12 +103,13 @@ wechselst du zwischen den Teilen. Jede Änderung wird **sofort gespeichert** und
 | Bereich | Bedienung |
 |---|---|
 | 📺 **Regel** | Auswahl für *Erster Channel*, *Folge-Channel*, *Hinweis-Channel* · Buttons *⏰ Uhrzeit* und *🔗 Regel-Link* (öffnen ein Eingabefenster) |
-| 🔧 **Optionen** | Schalter *🔒 Sperre*, *🗑️ Löschen*, *🖼️ Nur Bilder*, *🔍 Bildvergleich*, *1️⃣ Nur ein Beitrag* (grün = an, grau = aus) · *🎯 Toleranz* (Fenster) · Auswahl *⏳ Warte-Rolle* |
+| 🔧 **Optionen** | Schalter *🔒 Sperre*, *🗑️ Löschen*, *🖼️ Nur Bilder*, *🔍 Bildvergleich*, *1️⃣ Nur ein Beitrag* (grün = an, grau = aus) · *🎯 Toleranz* und *⏱️ Freischalt-Pause* (Fenster) · Auswahl *⏳ Warte-Rolle* |
 | 🏁 **Abschluss** | Auswahl *Wochentag* und *Rolle* · Buttons *📸 Anzahl*, *⏰ Uhrzeit* (Fenster) · Schalter *📣 Meldung* |
 | 🛡️ **Ausnahmen** | Rollen-Auswahl: alle Ausnahme-Rollen anhaken (mehrere möglich) |
-| 📝 **Texte** | Buttons öffnen das Fenster für *Hinweis*, *Bilder voll*, *Zeit um*, *Ein Beitrag* |
+| 📝 **Texte** | Buttons öffnen das Fenster für *Hinweis*, *Bilder voll*, *Zeit um*, *Ein Beitrag*, *Freischalt-Text* |
 
 Beim ersten Mal: im Bereich **Regel** die drei Channels und die Uhrzeit setzen, vorher ist die Regel nicht aktiv.
+
 Bedienen darf das Menü nur, wer „Server verwalten“ hat. **Schließen** löscht die Menü-Nachricht.
 
 Zur Info, was die Optionen bedeuten:
@@ -122,6 +123,7 @@ Zur Info, was die Optionen bedeuten:
 | Bildvergleich | nur melden, wenn es **dasselbe Bild** ist | aus |
 | Toleranz | wie ähnlich Bilder sein müssen (0–20) | 8 |
 | Nur ein Beitrag | weiteren Beitrag im Folge-Channel löschen | an |
+| Freischalt-Pause | Sekunden zwischen Freischalten (`/channel`) und dem Freischalt-Text (0–60) | 8 |
 
 ### `/channel` – das Channel-Menü
 Zeigt die aktuelle Woche: erster Channel, Folge-Channel, ob er offen oder geschlossen ist, Uhrzeit, Hinweis-Channel.
@@ -131,8 +133,16 @@ Zeigt die aktuelle Woche: erster Channel, Folge-Channel, ob er offen oder geschl
 | 📅 **Neue Woche** (Auswahl) | vorhandenen Channel als neuen Folge-Channel wählen, danach *✅ Ja + Rechte übernehmen*, *Ja, Rechte so lassen* oder *Abbrechen* |
 | ➕ **Channel erstellen** | Fenster mit Namen; der Channel kommt in die Kategorie des Folge-Channels und bekommt dessen **Berechtigungen** und *Langsamen Modus* |
 | ➕ **Erstellen + neue Woche** | wie oben und startet gleich die neue Woche |
-| 🔓 **Folge-Channel öffnen** | geschlossenen Folge-Channel wieder öffnen (nur aktiv, wenn er geschlossen ist) |
+| 🔓 **Channel freischalten / Folge-Channel öffnen** | ein Button für beides: neuen Folge-Channel für @everyone freischalten (mit Freischalt-Text) – oder, wenn der Abschluss ihn geschlossen hat, wieder öffnen |
 | 🔄 | Anzeige aktualisieren |
+
+**🔓 Channel freischalten:** Ein neuer Folge-Channel ist erst für @everyone unsichtbar. Der Button setzt für @everyone
+*Kanal ansehen = Ja* und *Nachrichten senden = Ja* und postet nach der **Freischalt-Pause** (Standard 8 Sekunden,
+einstellbar unter 🔧 Optionen) den **Freischalt-Text**
+(`/einstellungen` → 📝 Texte). Erwähnungen im Text (`@everyone`, Rollen, Personen) pingen – für `@everyone` braucht der Bot
+das Recht „Erwähne @everyone, @here und alle Rollen“. Pro Channel nur einmal; danach zeigt der Button *Freigeschaltet*.
+Hat der Abschluss den Channel geschlossen, heißt der Button **Folge-Channel öffnen** und hebt die Sperre wieder auf.
+Die Warte-Rolle sperrt Frühposter trotzdem weiter.
 
 **Berechtigungen übernehmen:** Kopiert werden alle Rechte-Einträge des bisherigen Folge-Channels (Rollen und Personen).
 Weggelassen wird nur, was der Bot selbst setzt: die Warte-Rolle, sein eigener Eintrag und die „Nachrichten senden“-Sperre
@@ -192,7 +202,7 @@ bisherigen Text, den du ändern kannst. Geht nur bei normalen Text-Nachrichten d
 Beim Bearbeiten wird niemand neu angepingt.
 
 ### Texte
-Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
+Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag, Freischalt-Text) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
 
 | Text | Wann | Platzhalter |
 |---|---|---|
@@ -200,6 +210,10 @@ Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag) stellst du im Einstellung
 | Bilder voll | wenn genug Leute gepostet haben | `{anzahl}` `{max}` `{uhrzeit}` `{channel}` |
 | Zeit um | wenn die Zeit um ist | `{anzahl}` `{max}` `{uhrzeit}` `{channel}` |
 | Ein Beitrag | wenn ein weiterer Beitrag gelöscht wurde | `{user}` |
+| Freischalt-Text | beim Freischalten des Folge-Channels | `{nummer}` `{channel}` `{uhrzeit}` `{regel}` |
+
+`{nummer}` ist die Zahl aus dem Namen des Folge-Channels (bei `snap-44` → `44`; bei mehreren Zahlen die letzte).
+Sie zählt also automatisch jede Woche mit hoch, wenn die Channels durchnummeriert sind.
 
 ### Wer darf was
 | Befehl | Recht |

@@ -17,6 +17,8 @@ const STANDARD_VOLL =
   '📸 **Der Channel ist voll!**\n{anzahl} Leute haben ihr Bild gepostet – der Channel ist jetzt geschlossen.\nDanke an alle! 🫶';
 const STANDARD_DOPPELT =
   '{user}\n\nIm Folge-Channel darf jeder nur **einen** Beitrag posten – dein weiterer Beitrag wurde entfernt. 🫶';
+const STANDARD_FREISCHALT =
+  '📸 **{channel} ist offen!**\nAb jetzt könnt ihr eure Bilder posten – denkt bitte an die Einstellungsregel. 🫶';
 const STANDARD_ZEIT =
   '⏰ **Die Zeit ist um!**\nDer Channel wurde um {uhrzeit} Uhr geschlossen – {anzahl} Leute haben mitgemacht.\nDanke an alle! 🫶';
 
@@ -103,6 +105,7 @@ module.exports = {
   STANDARD_TEXT,
   STANDARD_VOLL,
   STANDARD_DOPPELT,
+  STANDARD_FREISCHALT,
   STANDARD_ZEIT,
   config,
   gespeicherteKanaele,

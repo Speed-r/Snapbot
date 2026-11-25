@@ -2,8 +2,8 @@ const { PermissionFlagsBits } = require('discord.js');
 const { config, regelBereit, speichern } = require('../lib/daten');
 const { privat } = require('../lib/helfer');
 const { doppeltText, hinweisText } = require('../lib/regel');
-const { abschlussText } = require('../lib/abschluss');
-const { panelInteraktion, panelNachricht } = require('./panel');
+const { abschlussText, freischaltText } = require('../lib/abschluss');
+const { panelInteraktion, panelNachricht, seiteVonText } = require('./panel');
 const { listenInteraktion, listenOeffnen } = require('./listenpanel');
 const { personInteraktion, personOeffnen } = require('./personpanel');
 const { channelInteraktion, channelOeffnenBefehl } = require('./channelpanel');
@@ -54,6 +54,7 @@ async function interaktionAusfuehren(interaction) {
       const wert = interaction.fields.getTextInputValue('text').trim() || null;
       if (art === 'hinweis') cfg.text = wert;
       else if (art === 'doppelt') cfg.textDoppelt = wert;
+      else if (art === 'freischalt') cfg.textFreischalt = wert;
       else {
         cfg.abschluss ??= {};
         if (art === 'voll') cfg.abschluss.textVoll = wert;
@@ -61,10 +62,11 @@ async function interaktionAusfuehren(interaction) {
       }
       speichern();
       if (interaction.message?.components?.[0]?.components?.[0]?.customId === 'ep:bereich') {
-        return interaction.update(await panelNachricht(interaction.guild, cfg, 'texte'));
+        return interaction.update(await panelNachricht(interaction.guild, cfg, 'texte', seiteVonText(art)));
       }
       if (art === 'hinweis') return interaction.reply(privat(hinweisText(cfg, '0').replace('<@0>', '@Person')));
       if (art === 'doppelt') return interaction.reply(privat(doppeltText(cfg, '0').replace('<@0>', '@Person')));
+      if (art === 'freischalt') return interaction.reply(privat(freischaltText(cfg, interaction.guild.channels.cache?.get(cfg.folgeId)?.name)));
       return interaction.reply(privat(abschlussText(cfg, art, cfg.abschluss?.anzahl ?? 50)));
     }
 
