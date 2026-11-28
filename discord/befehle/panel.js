@@ -401,13 +401,15 @@ async function panelInteraktion(interaction) {
 
   // Bereich wechseln
   if (id === 'ep:bereich') {
-    await interaction.update(await panelNachricht(guild, cfg, interaction.values[0]));
+    const senden = schnellAntwort(interaction, 'update');
+    await senden(await panelNachricht(guild, cfg, interaction.values[0]));
     return true;
   }
 
   // Texte: blättern
   if (id.startsWith('ep:texte:seite:')) {
-    await interaction.update(await panelNachricht(guild, cfg, 'texte', Number(id.split(':')[3])));
+    const senden = schnellAntwort(interaction, 'update');
+    await senden(await panelNachricht(guild, cfg, 'texte', Number(id.split(':')[3])));
     return true;
   }
 

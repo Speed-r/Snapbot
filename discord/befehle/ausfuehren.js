@@ -7,6 +7,7 @@ const { panelInteraktion, panelNachricht, seiteVonText } = require('./panel');
 const { listenInteraktion, listenOeffnen } = require('./listenpanel');
 const { personInteraktion, personOeffnen } = require('./personpanel');
 const { channelInteraktion, channelOeffnenBefehl } = require('./channelpanel');
+const { schnellAntwort } = require('./menue');
 const { bearbeitenAbschicken, bearbeitenStart, nachrichtInteraktion, nachrichtOeffnen } = require('./nachrichtpanel');
 const { BEARBEITEN_NAME } = require('./definitionen');
 
@@ -63,7 +64,8 @@ async function interaktionAusfuehren(interaction) {
       }
       speichern();
       if (interaction.message?.components?.[0]?.components?.[0]?.customId === 'ep:bereich') {
-        return interaction.update(await panelNachricht(interaction.guild, cfg, 'texte', seiteVonText(art)));
+        const senden = schnellAntwort(interaction, 'update');
+        return senden(await panelNachricht(interaction.guild, cfg, 'texte', seiteVonText(art)));
       }
       if (art === 'hinweis') return interaction.reply(privat(hinweisText(cfg, '0').replace('<@0>', '@Person')));
       if (art === 'doppelt') return interaction.reply(privat(doppeltText(cfg, '0').replace('<@0>', '@Person')));
@@ -89,6 +91,12 @@ async function interaktionAusfuehren(interaction) {
         return nachrichtOeffnen(interaction);
     }
   } catch (e) {
+    // Discord gibt für eine Antwort nur 3 Sekunden – kam der Klick zu spät an, ist er abgelaufen
+    if (e?.code === 10062 || e?.code === 40060) {
+      const was = interaction.commandName ? `/${interaction.commandName}` : interaction.customId;
+      console.warn(`⚠️ ${was}: Antwort kam zu spät bei Discord an (Zeitlimit 3 s) – bitte einfach nochmal klicken.`);
+      return;
+    }
     console.error(e);
     const antwort = privat(`❌ Fehler: ${e.message}`);
     if (interaction.isRepliable()) {
