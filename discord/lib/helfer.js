@@ -126,7 +126,14 @@ const LINK_REGEX = /^https?:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/chann
 // Alle Antworten sind für jeden sichtbar. Pings sind über allowedMentions am Client abgeschaltet.
 const privat = (content) => ({ content });
 
+// {nummer} = die (letzte) Zahl im Channel-Namen, z. B. "snap-44" -> 44
+function nummerAusName(name) {
+  const zahlen = String(name || '').match(/\d+/g);
+  return zahlen ? String(Number(zahlen.at(-1))) : '?';
+}
+
 module.exports = {
+  nummerAusName,
   LINK_REGEX,
   MAX_CHANNEL,
   WOCHENTAGE,

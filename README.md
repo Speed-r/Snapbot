@@ -103,10 +103,11 @@ wechselst du zwischen den Teilen. Jede Änderung wird **sofort gespeichert** und
 | Bereich | Bedienung |
 |---|---|
 | 📺 **Regel** | Auswahl für *Erster Channel*, *Folge-Channel*, *Hinweis-Channel* · Buttons *⏰ Uhrzeit* und *🔗 Regel-Link* (öffnen ein Eingabefenster) |
-| 🔧 **Optionen** | Schalter *🔒 Sperre*, *🗑️ Löschen*, *🖼️ Nur Bilder*, *🔍 Bildvergleich*, *1️⃣ Nur ein Beitrag* (grün = an, grau = aus) · *🎯 Toleranz* und *⏱️ Freischalt-Pause* (Fenster) · Auswahl *⏳ Warte-Rolle* |
+| 🔧 **Optionen** | Schalter *🔒 Sperre*, *🗑️ Löschen*, *🖼️ Nur Bilder*, *🔍 Bildvergleich*, *1️⃣ Nur ein Beitrag*, *🚫 Nur Bilder erlauben* (grün = an, grau = aus) · *🎯 Toleranz* (Fenster) · Auswahl *⏳ Warte-Rolle* |
+| 🔓 **Freischalten** | Schalter *🤖 Automatisch* · Auswahl *📅 Wochentag* · *⏰ Uhrzeit* und *⏱️ Pause* (Fenster) – den Text gibt es unter 📝 Texte |
 | 🏁 **Abschluss** | Auswahl *Wochentag* und *Rolle* · Buttons *📸 Anzahl*, *⏰ Uhrzeit* (Fenster) · Schalter *📣 Meldung* |
 | 🛡️ **Ausnahmen** | Rollen-Auswahl: alle Ausnahme-Rollen anhaken (mehrere möglich) |
-| 📝 **Texte** | Buttons öffnen das Fenster für *Hinweis*, *Bilder voll*, *Zeit um*, *Ein Beitrag*, *Freischalt-Text* |
+| 📝 **Texte** | Buttons öffnen das Fenster für *Hinweis*, *Bilder voll*, *Zeit um*, *Ein Beitrag*, *Nur Bilder*, *Freischalt-Text* |
 
 Beim ersten Mal: im Bereich **Regel** die drei Channels und die Uhrzeit setzen, vorher ist die Regel nicht aktiv.
 
@@ -123,7 +124,7 @@ Zur Info, was die Optionen bedeuten:
 | Bildvergleich | nur melden, wenn es **dasselbe Bild** ist | aus |
 | Toleranz | wie ähnlich Bilder sein müssen (0–20) | 8 |
 | Nur ein Beitrag | weiteren Beitrag im Folge-Channel löschen | an |
-| Freischalt-Pause | Sekunden zwischen Freischalten (`/channel`) und dem Freischalt-Text (0–60) | 8 |
+| Nur Bilder erlauben | Beiträge ohne Bild (Text, Video …) im Folge-Channel sofort löschen, mit Hinweis | aus |
 
 ### `/channel` – das Channel-Menü
 Zeigt die aktuelle Woche: erster Channel, Folge-Channel, ob er offen oder geschlossen ist, Uhrzeit, Hinweis-Channel.
@@ -138,11 +139,16 @@ Zeigt die aktuelle Woche: erster Channel, Folge-Channel, ob er offen oder geschl
 
 **🔓 Channel freischalten:** Ein neuer Folge-Channel ist erst für @everyone unsichtbar. Der Button setzt für @everyone
 *Kanal ansehen = Ja* und *Nachrichten senden = Ja* und postet nach der **Freischalt-Pause** (Standard 8 Sekunden,
-einstellbar unter 🔧 Optionen) den **Freischalt-Text**
+einstellbar unter 🔓 Freischalten) den **Freischalt-Text**
 (`/einstellungen` → 📝 Texte). Erwähnungen im Text (`@everyone`, Rollen, Personen) pingen – für `@everyone` braucht der Bot
 das Recht „Erwähne @everyone, @here und alle Rollen“. Pro Channel nur einmal; danach zeigt der Button *Freigeschaltet*.
 Hat der Abschluss den Channel geschlossen, heißt der Button **Folge-Channel öffnen** und hebt die Sperre wieder auf.
 Die Warte-Rolle sperrt Frühposter trotzdem weiter.
+
+**Automatisch freischalten** (`/einstellungen` → 🔓 Freischalten): *🤖 Automatisch* an, Wochentag und Uhrzeit wählen. Der Bot
+schaltet dann den aktuellen Folge-Channel zu dieser Zeit selbst frei (genau wie der Button), einmal pro Channel. War der
+Bot zur Uhrzeit aus, holt er es am selben Tag nach. Gilt immer für den Channel, der *zu dem Zeitpunkt* Folge-Channel ist –
+„Neue Woche“ also vorher machen.
 
 **Berechtigungen übernehmen:** Kopiert werden alle Rechte-Einträge des bisherigen Folge-Channels (Rollen und Personen).
 Weggelassen wird nur, was der Bot selbst setzt: die Warte-Rolle, sein eigener Eintrag und die „Nachrichten senden“-Sperre
@@ -202,14 +208,15 @@ bisherigen Text, den du ändern kannst. Geht nur bei normalen Text-Nachrichten d
 Beim Bearbeiten wird niemand neu angepingt.
 
 ### Texte
-Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag, Freischalt-Text) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
+Die Texte (Hinweis, Bilder voll, Zeit um, Ein Beitrag, Nur Bilder, Freischalt-Text) stellst du im Einstellungs-Menü im Bereich **📝 Texte** ein.
 
 | Text | Wann | Platzhalter |
 |---|---|---|
-| Hinweis | Regel-Markierung | `{user}` `{uhrzeit}` `{regel}` |
+| Hinweis | Regel-Markierung | `{user}` `{channel}` `{nummer}` `{uhrzeit}` `{regel}` |
 | Bilder voll | wenn genug Leute gepostet haben | `{anzahl}` `{max}` `{uhrzeit}` `{channel}` |
 | Zeit um | wenn die Zeit um ist | `{anzahl}` `{max}` `{uhrzeit}` `{channel}` |
-| Ein Beitrag | wenn ein weiterer Beitrag gelöscht wurde | `{user}` |
+| Ein Beitrag | wenn ein weiterer Beitrag gelöscht wurde | `{user}` `{channel}` `{nummer}` |
+| Nur Bilder | wenn ein Beitrag ohne Bild gelöscht wurde (*Nur Bilder erlauben*) | `{user}` `{channel}` `{nummer}` |
 | Freischalt-Text | beim Freischalten des Folge-Channels | `{nummer}` `{channel}` `{uhrzeit}` `{regel}` |
 
 `{nummer}` ist die Zahl aus dem Namen des Folge-Channels (bei `snap-44` → `44`; bei mehreren Zahlen die letzte).

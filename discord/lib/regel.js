@@ -1,6 +1,7 @@
 const { hamming } = require('./bildvergleich');
-const { STANDARD_DOPPELT, STANDARD_TEXT, istGespeichert } = require('./daten');
-const { alleNachrichten, bilderVon, datumVon, formatUhrzeit, hashVon, minutenVon, tagVon } = require('./helfer');
+const { STANDARD_DOPPELT, STANDARD_NUR_BILDER, STANDARD_TEXT, istGespeichert } = require('./daten');
+const { client } = require('./client');
+const { alleNachrichten, bilderVon, datumVon, formatUhrzeit, hashVon, minutenVon, nummerAusName, tagVon } = require('./helfer');
 
 // ---------------------------------------------------------------------------
 // Frühposter: Wer hat im ERSTEN Channel vor Uhrzeit X gepostet – egal an welchem Tag?
@@ -68,6 +69,8 @@ async function verstoesst(msg, cfg) {
 function hinweisText(cfg, userId) {
   return (cfg.text || STANDARD_TEXT)
     .replaceAll('{user}', `<@${userId}>`)
+    .replaceAll('{channel}', `<#${cfg.folgeId}>`)
+    .replaceAll('{nummer}', nummerAusName(client.channels?.cache?.get(cfg.folgeId)?.name))
     .replaceAll('{uhrzeit}', cfg.uhrzeit)
     .replaceAll('{regelchannel}', '{regel}') // alter Platzhalter funktioniert weiter
     .replaceAll('{regel}', cfg.regelLink || (cfg.regelId ? `<#${cfg.regelId}>` : 'in den Regeln'));
@@ -102,8 +105,15 @@ async function doppelterBeitrag(msg, cfg) {
     m.author.id === msg.author.id && m.id !== msg.id && BigInt(m.id) < eigene && zaehltAlsBeitrag(m, cfg));
 }
 
+// Gemeinsame Platzhalter der Hinweistexte: {channel} = Folge-Channel, {nummer} = Zahl aus seinem Namen
+function channelPlatzhalter(text, cfg) {
+  return text
+    .replaceAll('{channel}', `<#${cfg.folgeId}>`)
+    .replaceAll('{nummer}', nummerAusName(client.channels?.cache?.get(cfg.folgeId)?.name));
+}
+
 function doppeltText(cfg, userId) {
-  return (cfg.textDoppelt || STANDARD_DOPPELT).replaceAll('{user}', `<@${userId}>`);
+  return channelPlatzhalter((cfg.textDoppelt || STANDARD_DOPPELT).replaceAll('{user}', `<@${userId}>`), cfg);
 }
 
 async function doppeltHinweisSenden(guild, cfg, userId) {
@@ -115,8 +125,24 @@ async function doppeltHinweisSenden(guild, cfg, userId) {
   await ziel.send({ content: doppeltText(cfg, userId), allowedMentions: { users: [userId] } });
 }
 
+// "Nur Bilder erlauben": Hinweis, wenn ein Beitrag ohne Bild gelöscht wurde (max. 1x pro 5 Min)
+async function nurBilderHinweisSenden(guild, cfg, userId) {
+  const schluessel = `${guild.id}:nurbilder:${userId}`;
+  if (Date.now() - (letzteHinweise.get(schluessel) || 0) < 5 * 60 * 1000) return;
+  letzteHinweise.set(schluessel, Date.now());
+  const ziel = await guild.channels.fetch(cfg.hinweisId).catch(() => null);
+  if (!ziel?.isTextBased()) return;
+  await ziel.send({ content: nurBilderText(cfg, userId), allowedMentions: { users: [userId] } });
+}
+
+function nurBilderText(cfg, userId) {
+  return channelPlatzhalter((cfg.textNurBilder || STANDARD_NUR_BILDER).replaceAll('{user}', `<@${userId}>`), cfg);
+}
+
 module.exports = {
   doppelterBeitrag,
+  nurBilderHinweisSenden,
+  nurBilderText,
   doppeltHinweisSenden,
   doppeltText,
   fruehCache,

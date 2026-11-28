@@ -2,7 +2,7 @@ const { client } = require('../lib/client');
 const { config, regelBereit } = require('../lib/daten');
 const { bilderVon, cacheGeaendert, cacheNeu, cacheWeg, minutenVon } = require('../lib/helfer');
 const { istAusnahme, sperren } = require('../lib/rechte');
-const { doppeltHinweisSenden, doppelterBeitrag, fruehCache, hinweisSenden, verstoesst } = require('../lib/regel');
+const { doppeltHinweisSenden, doppelterBeitrag, fruehCache, hinweisSenden, nurBilderHinweisSenden, verstoesst } = require('../lib/regel');
 const { listeSpaeterAktualisieren } = require('../lib/listen');
 const { abschlussVollPruefen, zaehlerCache } = require('../lib/abschluss');
 
@@ -74,6 +74,16 @@ async function nachrichtNeu(msg) {
   //    (greift, wenn Sperre aus ist, nicht gesetzt werden konnte oder der Bot offline war)
   if (msg.channelId !== cfg.folgeId) return;
   const hatBild = bilderVon(msg).length > 0;
+
+  // 2·) "Nur Bilder erlauben": Beiträge ohne Bild (Text, Video …) sofort löschen (Ausnahme-Rollen dürfen alles)
+  if (cfg.nurBilderErlaubt && !hatBild && !(await ausnahme())) {
+    const weg = await msgLoeschen(msg);
+    if (weg) {
+      await nurBilderHinweisSenden(msg.guild, cfg, msg.author.id).catch(() => {});
+      console.log(`Beitrag ohne Bild von ${msg.author.tag} im Folge-Channel gelöscht.`);
+      return;
+    }
+  }
 
   // 2a) Nur EIN Beitrag pro Person: weiterer Beitrag wird gelöscht (Ausnahme-Rollen dürfen mehrere)
   if (cfg.einBeitrag !== false && (!cfg.nurBilder || hatBild) && !(await ausnahme()) && await doppelterBeitrag(msg, cfg)) {

@@ -1,7 +1,7 @@
 const { PermissionFlagsBits } = require('discord.js');
 const { config, regelBereit, speichern } = require('../lib/daten');
 const { privat } = require('../lib/helfer');
-const { doppeltText, hinweisText } = require('../lib/regel');
+const { doppeltText, hinweisText, nurBilderText } = require('../lib/regel');
 const { abschlussText, freischaltText } = require('../lib/abschluss');
 const { panelInteraktion, panelNachricht, seiteVonText } = require('./panel');
 const { listenInteraktion, listenOeffnen } = require('./listenpanel');
@@ -55,6 +55,7 @@ async function interaktionAusfuehren(interaction) {
       if (art === 'hinweis') cfg.text = wert;
       else if (art === 'doppelt') cfg.textDoppelt = wert;
       else if (art === 'freischalt') cfg.textFreischalt = wert;
+      else if (art === 'nurbilder') cfg.textNurBilder = wert;
       else {
         cfg.abschluss ??= {};
         if (art === 'voll') cfg.abschluss.textVoll = wert;
@@ -66,6 +67,7 @@ async function interaktionAusfuehren(interaction) {
       }
       if (art === 'hinweis') return interaction.reply(privat(hinweisText(cfg, '0').replace('<@0>', '@Person')));
       if (art === 'doppelt') return interaction.reply(privat(doppeltText(cfg, '0').replace('<@0>', '@Person')));
+      if (art === 'nurbilder') return interaction.reply(privat(nurBilderText(cfg, '0').replace('<@0>', '@Person')));
       if (art === 'freischalt') return interaction.reply(privat(freischaltText(cfg, interaction.guild.channels.cache?.get(cfg.folgeId)?.name)));
       return interaction.reply(privat(abschlussText(cfg, art, cfg.abschluss?.anzahl ?? 50)));
     }

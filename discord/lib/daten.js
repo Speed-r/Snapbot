@@ -19,6 +19,8 @@ const STANDARD_DOPPELT =
   '{user}\n\nIm Folge-Channel darf jeder nur **einen** Beitrag posten – dein weiterer Beitrag wurde entfernt. 🫶';
 const STANDARD_FREISCHALT =
   '📸 **{channel} ist offen!**\nAb jetzt könnt ihr eure Bilder posten – denkt bitte an die Einstellungsregel. 🫶';
+const STANDARD_NUR_BILDER =
+  '{user}\n\nIm Folge-Channel sind **nur Bilder** erlaubt – dein Beitrag ohne Bild wurde entfernt. 🫶';
 const STANDARD_ZEIT =
   '⏰ **Die Zeit ist um!**\nDer Channel wurde um {uhrzeit} Uhr geschlossen – {anzahl} Leute haben mitgemacht.\nDanke an alle! 🫶';
 
@@ -106,6 +108,7 @@ module.exports = {
   STANDARD_VOLL,
   STANDARD_DOPPELT,
   STANDARD_FREISCHALT,
+  STANDARD_NUR_BILDER,
   STANDARD_ZEIT,
   config,
   gespeicherteKanaele,

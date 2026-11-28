@@ -4,7 +4,7 @@ const { minutenVon, tagVon } = require('./helfer');
 const { alleEntsperren, istAusnahme, sperreAufheben, sperren } = require('./rechte');
 const { fruehCache, fruehposter } = require('./regel');
 const { listeErstellen } = require('./listen');
-const { abschlussNachholen, abschlussZeitPruefen } = require('./abschluss');
+const { abschlussNachholen, abschlussZeitPruefen, autoFreischaltenPruefen } = require('./abschluss');
 
 // Neue Woche: bisheriger Folge-Channel wird zum ersten Channel, neuer Channel wird Folge-Channel.
 // Uhrzeit, Hinweis-Channel, Text und Optionen bleiben.
@@ -87,6 +87,7 @@ async function minutenTakt() {
     const guild = client.guilds.cache.get(gid);
     if (!guild || !regelBereit(cfg)) continue;
     await abschlussZeitPruefen(guild, cfg).catch((e) => console.warn('Abschluss-Prüfung fehlgeschlagen:', e.message));
+    await autoFreischaltenPruefen(guild, cfg).catch((e) => console.warn('Automatisch freischalten fehlgeschlagen:', e.message));
     const vorbei = minutenVon(jetzt) >= cfg.uhrzeitMinuten;
     if (!vorbei && cfg.vorbereitetAm !== heute) await sperrenVorbereiten(guild, cfg);
     if (!cfg.gesperrt || Object.keys(cfg.gesperrt).length === 0) continue;

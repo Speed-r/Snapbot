@@ -1,7 +1,7 @@
 const { client } = require('./client');
 const { PermissionFlagsBits } = require('discord.js');
 const { STANDARD_FREISCHALT, STANDARD_VOLL, STANDARD_ZEIT, speichern } = require('./daten');
-const { alleNachrichten, bilderVon, minutenVon, tagVon, wochentagVon } = require('./helfer');
+const { alleNachrichten, bilderVon, minutenVon, nummerAusName, tagVon, wochentagVon } = require('./helfer');
 const { overwriteEntfernen } = require('./rechte');
 
 // ---------------------------------------------------------------------------
@@ -99,12 +99,6 @@ async function channelOeffnen(guild, cfg) {
 // @everyone: Kanal sehen JA, Nachrichten schreiben JA – danach der Freischalt-Text.
 // Die Warte-Rolle sperrt Frühposter trotzdem weiter (Rollen-Einträge zählen mehr als @everyone).
 // ---------------------------------------------------------------------------
-// {nummer} = die (letzte) Zahl im Namen des Folge-Channels, z. B. "snap-44" -> 44
-function nummerAusName(name) {
-  const zahlen = String(name || '').match(/\d+/g);
-  return zahlen ? String(Number(zahlen.at(-1))) : '?';
-}
-
 
 // Pause zwischen Rechte setzen und Freischalt-Text in Sekunden (einstellbar unter /einstellungen → Optionen, Standard 8)
 const freischaltPause = (cfg) => cfg.freischaltPause ?? 8;
@@ -172,6 +166,25 @@ function nameVon(bit) {
   return Object.keys(PermissionFlagsBits).find((k) => PermissionFlagsBits[k] === bit);
 }
 
+// Automatisch freischalten (/einstellungen → 🔓 Freischalten): am eingestellten Wochentag ab der Uhrzeit,
+// einmal pro Folge-Channel und Tag. Läuft im Minuten-Takt; war der Bot zur Uhrzeit aus, holt er es am selben Tag nach.
+async function autoFreischaltenPruefen(guild, cfg) {
+  const fs = cfg.freischalten;
+  if (!fs?.auto || fs.uhrzeitMinuten == null || fs.wochentag == null) return;
+  const jetzt = new Date();
+  if (fs.wochentag !== 'taeglich' && wochentagVon(jetzt) !== fs.wochentag) return;
+  if (minutenVon(jetzt) < fs.uhrzeitMinuten) return;
+  const schluessel = `${cfg.folgeId}:${tagVon(jetzt)}`;
+  if (fs.erledigt === schluessel) return;
+  fs.erledigt = schluessel; // nur ein Versuch pro Channel und Tag
+  speichern();
+  const ch = await guild.channels.fetch(cfg.folgeId).catch(() => null);
+  if (!ch || istFreigeschaltet(guild, cfg, ch) || abschlussStatus(cfg).geschlossen) return;
+  const r = await channelFreischalten(guild, cfg);
+  if (r.fehler) console.warn(`Automatisch freischalten fehlgeschlagen: ${r.fehler}`);
+  else console.log(`Automatisch freigeschaltet: #${ch.name}${r.info ? ` – ${r.info}` : ''}`);
+}
+
 // A) nach jedem gültigen Bild-Post im Folge-Channel
 async function abschlussVollPruefen(guild, cfg, userId) {
   const a = cfg.abschluss;
@@ -214,12 +227,12 @@ module.exports = {
   abschlussVollPruefen,
   abschlussZaehler,
   abschlussZeitPruefen,
+  autoFreischaltenPruefen,
   channelFreischalten,
   channelOeffnen,
   channelSchliessen,
   freischaltPause,
   istFreigeschaltet,
   freischaltText,
-  nummerAusName,
   zaehlerCache,
 };

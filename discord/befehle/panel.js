@@ -4,12 +4,12 @@ const {
 } = require('discord.js');
 const { TEXT_CHANNELS, eingabeFenster, knopf, menueSchliessen, reihe, schliessenKnopf, schnellAntwort } = require('./menue');
 const { client } = require('../lib/client');
-const { STANDARD_DOPPELT, STANDARD_FREISCHALT, STANDARD_TEXT, STANDARD_VOLL, STANDARD_ZEIT, config, gespeicherteKanaele, regelBereit, speichern } = require('../lib/daten');
+const { STANDARD_DOPPELT, STANDARD_FREISCHALT, STANDARD_NUR_BILDER, STANDARD_TEXT, STANDARD_VOLL, STANDARD_ZEIT, config, gespeicherteKanaele, regelBereit, speichern } = require('../lib/daten');
 const { LINK_REGEX, WOCHENTAGE, ZEITZONE, formatUhrzeit, parseUhrzeit, privat } = require('../lib/helfer');
 const { alleEntsperren, istAusnahme, rollenCache, sperreAufheben } = require('../lib/rechte');
-const { doppeltText, fruehCache, hinweisText } = require('../lib/regel');
+const { doppeltText, fruehCache, hinweisText, nurBilderText } = require('../lib/regel');
 const { sperrenVorbereiten } = require('../lib/ablauf');
-const { abschlussStatus, abschlussText, abschlussZaehler, abschlussZeitPruefen, channelSchliessen, freischaltPause, freischaltText, zaehlerCache } = require('../lib/abschluss');
+const { abschlussStatus, abschlussText, abschlussZaehler, abschlussZeitPruefen, channelSchliessen, freischaltPause, freischaltText, istFreigeschaltet, zaehlerCache } = require('../lib/abschluss');
 
 // ===========================================================================
 // /einstellungen – Einstellungs-Menü
@@ -20,7 +20,8 @@ const FARBE = 0x5865f2;
 
 const BEREICHE = [
   { id: 'regel', name: 'Regel', emoji: '📺', info: 'Channels, Uhrzeit, Regel-Link' },
-  { id: 'optionen', name: 'Optionen', emoji: '🔧', info: 'Sperre, Warte-Rolle, Löschen, Bilder, ein Beitrag, Freischalt-Pause' },
+  { id: 'optionen', name: 'Optionen', emoji: '🔧', info: 'Sperre, Warte-Rolle, Löschen, Bilder, ein Beitrag' },
+  { id: 'freischalten', name: 'Freischalten', emoji: '🔓', info: 'Folge-Channel für alle freischalten – automatisch oder per /channel' },
   { id: 'abschluss', name: 'Abschluss', emoji: '🏁', info: 'Folge-Channel automatisch schließen' },
   { id: 'ausnahmen', name: 'Ausnahmen', emoji: '🛡️', info: 'Rollen, für die die Regel nicht gilt' },
   { id: 'texte', name: 'Texte', emoji: '📝', info: 'Hinweistexte und Abschlusstexte' },
@@ -31,13 +32,14 @@ const STANDARD_CFG = () => ({ sperren: true, loeschen: false, nurBilder: true, b
 const anAus = (x) => (x ? 'an' : 'aus');
 // Texte-Bereich in Seiten: je Seite die Texte, die zusammengehören (vollständig, nicht abgeschnitten)
 const TEXT_SEITEN = [
-  { name: 'Hinweise', texte: ['hinweis', 'doppelt'] },
+  { name: 'Hinweise', texte: ['hinweis', 'doppelt', 'nurbilder'] },
   { name: 'Abschluss', texte: ['voll', 'zeit'] },
   { name: 'Freischalten', texte: ['freischalt'] },
 ];
 const TEXT_INFO = {
   hinweis: { titel: '📣 Hinweis (Uhrzeit-Regel)', knopf: '📣 Hinweis bearbeiten' },
   doppelt: { titel: '1️⃣ Nur ein Beitrag', knopf: '1️⃣ Ein Beitrag bearbeiten' },
+  nurbilder: { titel: '🚫 Nur Bilder erlaubt', knopf: '🚫 Nur Bilder bearbeiten' },
   voll: { titel: '📸 Abschluss – Bilder voll', knopf: '📸 Bilder voll bearbeiten' },
   zeit: { titel: '⏰ Abschluss – Zeit um', knopf: '⏰ Zeit um bearbeiten' },
   freischalt: { titel: '📢 Beim Freischalten', knopf: '📢 Freischalt-Text bearbeiten' },
@@ -49,6 +51,7 @@ function textVorschau(guild, cfg, art) {
   const t = {
     hinweis: () => hinweisText(cfg, '0').replace('<@0>', '@Person'),
     doppelt: () => doppeltText(cfg, '0').replace('<@0>', '@Person'),
+    nurbilder: () => nurBilderText(cfg, '0').replace('<@0>', '@Person'),
     voll: () => abschlussText(cfg, 'voll', cfg.abschluss?.anzahl ?? 50),
     zeit: () => abschlussText(cfg, 'zeit', 42),
     freischalt: () => freischaltText(cfg, guild.channels.cache?.get(cfg.folgeId)?.name),
@@ -96,11 +99,27 @@ async function bereichEmbed(guild, cfg, bereich, fuss, seite = 0) {
       f('🔍 Bildvergleich', anAus(cfg.bildvergleich)),
       f('🎯 Toleranz', `${cfg.toleranz ?? 8} (0–20)`),
       f('1️⃣ Nur ein Beitrag', anAus(cfg.einBeitrag !== false)),
-      f('⏱️ Freischalt-Pause', `${freischaltPause(cfg)} Sekunden\n-# Wartezeit zwischen Freischalten (/channel) und dem Freischalt-Text`),
+      f('🚫 Nur Bilder erlauben', anAus(!!cfg.nurBilderErlaubt) + '\n-# Beiträge ohne Bild (Text, Video …) im Folge-Channel löschen'),
       f('\u200b', '\u200b'),
     );
   }
 
+  if (b.id === 'freischalten') {
+    const fs = cfg.freischalten || {};
+    const folge = guild.channels.cache?.get(cfg.folgeId);
+    const offen = regelBereit(cfg) && folge ? istFreigeschaltet(guild, cfg, folge) : null;
+    const wann = fs.uhrzeit
+      ? `${fs.wochentag != null ? WOCHENTAGE[fs.wochentag] : '⚠️ Wochentag wählen'} · **${fs.uhrzeit} Uhr**`
+      : '⚠️ Uhrzeit fehlt';
+    e.addFields(
+      f('🤖 Automatisch', anAus(!!fs.auto) + '\n-# Bot schaltet den Folge-Channel selbst frei'),
+      f('📅 Wann', wann),
+      f('⏱️ Freischalt-Pause', `${freischaltPause(cfg)} Sekunden\n-# zwischen Freischalten und Text`),
+      f('📊 Folge-Channel', offen === null ? '–' : offen ? '🔓 freigeschaltet' : '🔒 noch unsichtbar'),
+      f('👆 Von Hand', '`/channel` → 🔓 Channel freischalten'),
+      f('📢 Freischalt-Text', 'Einstellbar unter 📝 Texte → Seite 3'),
+    );
+  }
   if (b.id === 'abschluss') {
     const a = cfg.abschluss || {};
     const st = a.status?.channelId === cfg.folgeId ? a.status : null;
@@ -205,7 +224,22 @@ async function panelNachricht(guild, cfg, bereich = 'regel', seite = 0) {
       reihe(rollenAuswahl('ep:optionen:warterolle', '⏳ Warte-Rolle wählen (Standard: automatisch) …', [cfg.warteRolleId])),
       reihe(
         schalter('ep:optionen:einBeitrag', '1️⃣ Nur ein Beitrag', cfg.einBeitrag !== false),
-        knopf('ep:optionen:pause', `⏱️ Freischalt-Pause: ${freischaltPause(cfg)} s`, ButtonStyle.Primary),
+        schalter('ep:optionen:nurBilderErlaubt', '🚫 Nur Bilder erlauben', !!cfg.nurBilderErlaubt),
+        schliessen('ep'),
+      ),
+    );
+  } else if (bereich === 'freischalten') {
+    const fs = cfg.freischalten || {};
+    zeilen.push(
+      reihe(new StringSelectMenuBuilder()
+        .setCustomId('ep:freischalten:wochentag')
+        .setPlaceholder('📅 Wochentag fürs automatische Freischalten …')
+        .addOptions(['1', '2', '3', '4', '5', '6', '0', 'taeglich']
+          .map((v) => ({ label: WOCHENTAGE[v][0].toUpperCase() + WOCHENTAGE[v].slice(1), value: v, default: fs.wochentag === v })))),
+      reihe(
+        schalter('ep:freischalten:auto', '🤖 Automatisch', !!fs.auto),
+        knopf('ep:freischalten:uhrzeit', `⏰ Uhrzeit: ${fs.uhrzeit || 'aus'}`, ButtonStyle.Primary),
+        knopf('ep:freischalten:pause', `⏱️ Pause: ${freischaltPause(cfg)} s`, ButtonStyle.Primary),
         schliessen('ep'),
       ),
     );
@@ -250,10 +284,11 @@ async function panelNachricht(guild, cfg, bereich = 'regel', seite = 0) {
 // Fenster für Hinweis-/Abschlusstexte
 function textFenster(cfg, art) {
   const vorgabe = {
-    hinweis: { titel: 'Hinweistext', label: 'Text ({user} {uhrzeit} {regel})', wert: cfg.text || STANDARD_TEXT },
+    hinweis: { titel: 'Hinweistext', label: 'Text ({user} {channel} {nummer} {uhrzeit})', wert: cfg.text || STANDARD_TEXT },
     voll: { titel: 'Abschluss – Bilder voll', label: 'Text ({anzahl} {max} {uhrzeit} {channel})', wert: cfg.abschluss?.textVoll || STANDARD_VOLL },
     zeit: { titel: 'Abschluss – Zeit um', label: 'Text ({anzahl} {max} {uhrzeit} {channel})', wert: cfg.abschluss?.textZeit || STANDARD_ZEIT },
-    doppelt: { titel: 'Nur ein Beitrag', label: 'Text ({user})', wert: cfg.textDoppelt || STANDARD_DOPPELT },
+    doppelt: { titel: 'Nur ein Beitrag', label: 'Text ({user} {channel} {nummer})', wert: cfg.textDoppelt || STANDARD_DOPPELT },
+    nurbilder: { titel: 'Nur Bilder erlaubt', label: 'Text ({user} {channel} {nummer})', wert: cfg.textNurBilder || STANDARD_NUR_BILDER },
     freischalt: { titel: 'Text beim Freischalten', label: 'Text ({nummer} {channel} {uhrzeit} {regel})', wert: cfg.textFreischalt || STANDARD_FREISCHALT },
   }[art];
   const feld = new TextInputBuilder()
@@ -381,7 +416,8 @@ async function panelInteraktion(interaction) {
     const fenster = {
       'ep:regel:uhrzeit': () => eingabeFenster('epm:regel:uhrzeit', 'Uhrzeit X', 'Folge-Channel erlaubt ab (HH:MM)', cfg.uhrzeit, '16:00'),
       'ep:regel:link': () => eingabeFenster('epm:regel:link', 'Regel-Link', 'Nachrichtenlink zur Regel (leer = entfernen)', cfg.regelLink, 'https://discord.com/channels/…'),
-      'ep:optionen:pause': () => eingabeFenster('epm:optionen:pause', 'Freischalt-Pause', 'Sekunden bis zum Freischalt-Text (0–60)', freischaltPause(cfg), '8'),
+      'ep:freischalten:pause': () => eingabeFenster('epm:freischalten:pause', 'Freischalt-Pause', 'Sekunden bis zum Freischalt-Text (0–60)', freischaltPause(cfg), '8'),
+      'ep:freischalten:uhrzeit': () => eingabeFenster('epm:freischalten:uhrzeit', 'Automatisch freischalten', 'Uhrzeit HH:MM (aus = ausschalten)', cfg.freischalten?.uhrzeit ?? 'aus', '12:00'),
       'ep:optionen:toleranz': () => eingabeFenster('epm:optionen:toleranz', 'Bildvergleich-Toleranz', 'Zahl von 0 bis 20 (Standard 8)', cfg.toleranz ?? 8, '8'),
       'ep:abschluss:anzahl': () => eingabeFenster('epm:abschluss:anzahl', 'Bilder voll', 'Ab wie vielen Leuten schließen? (0 = aus)', a.anzahl ?? 0, '50'),
       'ep:abschluss:uhrzeit': () => eingabeFenster('epm:abschluss:uhrzeit', 'Zeit um', 'Uhrzeit HH:MM (aus = ausschalten)', a.uhrzeit ?? 'aus', '23:59'),
@@ -389,6 +425,7 @@ async function panelInteraktion(interaction) {
       'ep:texte:voll': () => textFenster(cfg, 'voll'),
       'ep:texte:zeit': () => textFenster(cfg, 'zeit'),
       'ep:texte:doppelt': () => textFenster(cfg, 'doppelt'),
+      'ep:texte:nurbilder': () => textFenster(cfg, 'nurbilder'),
       'ep:texte:freischalt': () => textFenster(cfg, 'freischalt'),
     }[id];
     if (fenster) {
@@ -414,10 +451,18 @@ async function panelInteraktion(interaction) {
     } else if (bereich === 'regel' && feld === 'link') {
       if (wert && !LINK_REGEX.test(wert)) fehler = 'Das ist kein Discord-Nachrichtenlink (https://discord.com/channels/…).';
       else { cfg.regelLink = wert || null; speichern(); }
-    } else if (bereich === 'optionen' && feld === 'pause') {
+    } else if (bereich === 'freischalten' && feld === 'pause') {
       const n = Number(wert);
       if (!Number.isInteger(n) || n < 0 || n > 60) fehler = 'Pause bitte als ganze Zahl von 0 bis 60 Sekunden.';
       else { cfg.freischaltPause = n; speichern(); }
+    } else if (bereich === 'freischalten' && feld === 'uhrzeit') {
+      const fs = (cfg.freischalten ??= {});
+      if (!wert || wert.toLowerCase() === 'aus') { fs.uhrzeit = null; fs.uhrzeitMinuten = null; speichern(); }
+      else {
+        const min = parseUhrzeit(wert);
+        if (min === null) fehler = 'Uhrzeit bitte als HH:MM angeben, z. B. 12:00 – oder `aus`.';
+        else { fs.uhrzeit = formatUhrzeit(min); fs.uhrzeitMinuten = min; speichern(); }
+      }
     } else if (bereich === 'optionen' && feld === 'toleranz') {
       const n = Number(wert);
       if (!Number.isInteger(n) || n < 0 || n > 20) fehler = 'Toleranz bitte als ganze Zahl von 0 bis 20.';
@@ -457,6 +502,9 @@ async function panelInteraktion(interaction) {
     } else if (feld === 'nurBilder') {
       cfg.nurBilder = cfg.nurBilder === false;
       nachRegelAenderung(guild, cfg, { neuBerechnen: true });
+    } else if (feld === 'nurBilderErlaubt') {
+      cfg.nurBilderErlaubt = !cfg.nurBilderErlaubt;
+      speichern();
     } else if (feld === 'einBeitrag') {
       cfg.einBeitrag = cfg.einBeitrag === false;
       speichern();
@@ -464,6 +512,11 @@ async function panelInteraktion(interaction) {
       cfg[feld] = !cfg[feld];
       speichern();
     }
+  } else if (bereich === 'freischalten') {
+    const fs = (cfg.freischalten ??= {});
+    if (feld === 'wochentag') fs.wochentag = interaction.values[0];
+    if (feld === 'auto') fs.auto = !fs.auto;
+    speichern();
   } else if (bereich === 'abschluss') {
     if (feld === 'wochentag') a.wochentag = interaction.values[0];
     if (feld === 'rolle') a.rolleId = interaction.values[0] === gid ? null : interaction.values[0];
